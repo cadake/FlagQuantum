@@ -136,8 +136,6 @@ def _configure_worker(cpu_group: Sequence[int], threads: int) -> tuple[int, ...]
 def _worker_subprocess_main(payload_text: str) -> int:
     """Execute one taskset-pinned worker using a line-oriented start barrier."""
 
-    if sys.platform != "linux":
-        raise RuntimeError("socket-local throughput measurement requires Linux")
     payload = json.loads(payload_text)
     worker = int(payload["worker"])
     cpu_group = tuple(int(cpu) for cpu in payload["cpu_group"])
@@ -418,7 +416,7 @@ def _cpu_model() -> str:
 def _validate_matrix(
     cpus: Sequence[int], workers: Sequence[int], total_tasks: int
 ) -> None:
-    if sys.platform != "linux":
+    if platform.system() != "Linux":
         raise RuntimeError("socket-local throughput measurement requires Linux")
     if not workers or len(set(workers)) != len(workers):
         raise ValueError("worker counts must be unique and non-empty")
