@@ -38,8 +38,8 @@ FORBIDDEN_BUNDLED_TORCH_LIBRARIES = (
     "torch_python.dll",
 )
 SUPPORTED_TORCH_REQUIREMENTS = {
-    "torch>=2.13,<2.15",
-    "torch<2.15,>=2.13",
+    "torch>=2.10,<2.15",
+    "torch<2.15,>=2.10",
 }
 RELEASE_PYTHON_TAG = "cp310"
 RELEASE_ABI_TAG = "abi3"
@@ -233,7 +233,7 @@ def artifact_errors(path: Path) -> tuple[str, ...]:
             )
         elif torch_requirements[0].replace(" ", "") not in SUPPORTED_TORCH_REQUIREMENTS:
             errors.append(
-                "wheel must require the supported PyTorch 2.13-2.14 range, "
+                "wheel must require the supported PyTorch 2.10-2.14 range, "
                 f"got {torch_requirements[0]!r}"
             )
         elif not (

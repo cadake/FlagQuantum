@@ -3,6 +3,8 @@ from pathlib import Path
 import pytest
 import yaml
 
+from tools.check_dependency_policy import load_toml
+
 pytestmark = pytest.mark.unit
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -168,6 +170,27 @@ def test_cibuildwheel_builds_one_abi3_wheel_against_the_stable_torch_abi() -> No
     assert 'os.environ.get("CL", "")' in setup_configuration
     assert 'os.environ["CL"] =' in setup_configuration
     assert "_configure_msvc_environment()" in setup_configuration
+
+
+def test_one_wheel_is_loaded_on_the_older_runtime_minors() -> None:
+    workflow = _workflow(".github/workflows/ci.yml")
+    step = next(
+        item
+        for item in workflow["jobs"]["package"]["steps"]
+        if item.get("name") == "Verify one wheel on older PyTorch runtimes"
+    )
+    command = step["run"]
+    assert "for version in 2.10 2.11 2.12" in command
+    assert "pip install dist/*.whl" in command
+    assert "native_cpu_adjoint_available()" in command
+    assert "cd /tmp" in command
+    assert step["timeout-minutes"] >= 10
+
+
+def test_build_backend_supports_spdx_license_metadata() -> None:
+    project = load_toml(ROOT / "pyproject.toml")
+    assert project["project"]["license"] == "Apache-2.0"
+    assert "setuptools>=77.0.3" in project["build-system"]["requires"]
 
 
 def test_native_extension_avoids_compiler_specific_bit_builtins() -> None:

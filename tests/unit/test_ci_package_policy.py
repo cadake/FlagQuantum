@@ -42,7 +42,7 @@ def _fake_wheel(
     tmp_path: Path,
     *,
     native_extension: str | None,
-    torch_requirement: str = "torch>=2.13,<2.15",
+    torch_requirement: str = "torch>=2.10,<2.15",
 ) -> Path:
     """A minimal wheel that satisfies every artifact rule except the extension.
 
@@ -142,7 +142,7 @@ def test_distribution_rejects_an_abi_incompatible_torch_requirement(
         torch_requirement="torch>=2.5,<2.15",
     )
 
-    assert any("PyTorch 2.13-2.14 range" in error for error in artifact_errors(wheel))
+    assert any("PyTorch 2.10-2.14 range" in error for error in artifact_errors(wheel))
 
 
 def test_native_extension_uses_only_pytorch_stable_or_header_only_apis() -> None:

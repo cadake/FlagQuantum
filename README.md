@@ -35,8 +35,8 @@ Requires Python **3.10–3.12**. Choose the command for your computer.
 python -m pip install flagquantum
 ```
 
-PyTorch 2.13 does not publish macOS Intel (`x86_64`) wheels, so this
-FlagQuantum release cannot provide a working Intel macOS installation.
+This release publishes macOS wheels for Apple Silicon only; Intel macOS is
+not a supported binary installation target.
 
 **Linux or Windows, CPU only:**
 
@@ -46,7 +46,8 @@ python -m pip install flagquantum
 ```
 
 FlagQuantum's compiled extension uses PyTorch's Stable ABI and is tested with
-PyTorch 2.13.x and 2.14.x. The first CPU install downloads about 200 MB of
+PyTorch 2.10.x through 2.14.x in compatibility CI. New CPU/CUDA environments
+should use the recommended 2.13.x or 2.14.x runtime above. The first CPU install downloads about 200 MB of
 PyTorch. On a clean GitHub Ubuntu runner it took about 16 seconds; slower
 networks will take longer.
 
@@ -58,6 +59,18 @@ python -m pip install flagquantum
 ```
 
 Installing from source? Follow the short setup in [CONTRIBUTING.md](CONTRIBUTING.md).
+
+**Vendor accelerators (for example, MetaX C550):** Keep the vendor-provided
+PyTorch runtime installed, then use the same `python -m pip install flagquantum`
+command. The core requirement accepts `torch>=2.10,<2.15`, including local version
+labels such as `2.10.0+metax3.8.1.0`; do not install the upstream CPU/CUDA wheel
+over the vendor runtime. The C550 runtime above passed single-card autograd and
+single-node two/eight-card statevector forward, training and checkpoint recovery
+checks. This is not multi-node, capacity or performance certification. Vendor
+drivers, Torch-FL and security patch maintenance remain platform-managed.
+Avoid `--upgrade`/`--upgrade-strategy eager` when retaining a managed runtime.
+The `invertible` extra still requires PyTorch 2.13.x and is not a vendor-runtime
+installation shortcut.
 
 To build a CPU or GPU environment with QSteed and optional JAX, follow the
 [container guide](docker/dev/README.md).
