@@ -98,6 +98,34 @@ def test_jiuding_helper_uses_target_instead_of_removed_gpus_argument() -> None:
     assert "gpus=" not in source
 
 
+@pytest.mark.parametrize("existing_receipt", (False, True))
+def test_jiuding_circuit_quick_start_does_not_resubmit(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, existing_receipt: bool
+) -> None:
+    import flagquantum as fq
+
+    def reject_submission(*args: object, **kwargs: object) -> None:
+        pytest.fail("The quick start must not submit in this scenario")
+
+    monkeypatch.setattr(fq, "submit", reject_submission)
+    notebook = _notebook("cloud/04_jiuding_jobs.ipynb")
+    source = next(
+        "".join(cell["source"])
+        for cell in notebook["cells"]
+        if cell["cell_type"] == "code"
+        and "submit_circuit = False" in "".join(cell["source"])
+    )
+    namespace: dict[str, object] = {"OUTPUTS": tmp_path}
+    if existing_receipt:
+        (tmp_path / "circuit_job.receipt.json").touch()
+        source = source.replace("submit_circuit = False", "submit_circuit = True")
+        with pytest.raises(FileExistsError, match="Restore this job"):
+            exec(source, namespace)
+    else:
+        exec(source, namespace)
+        assert not (tmp_path / "circuit_job.receipt.json").exists()
+
+
 def test_first_lab_reports_configuration_without_exposing_values() -> None:
     source = _code_source("basics/01_first_circuit.ipynb")
 
