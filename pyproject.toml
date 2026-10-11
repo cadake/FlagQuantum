@@ -3,7 +3,7 @@
 [build-system]
 # Compile the native extension against the oldest PyTorch Stable ABI that we
 # target. Keep compatible preinstalled vendor runtimes within the runtime range.
-requires = ["setuptools>=61.0", "wheel", "torch>=2.10,<2.11"]
+requires = ["setuptools>=77.0.3", "wheel", "torch>=2.10,<2.11"]
 build-backend = "setuptools.build_meta"
 
 [project]
