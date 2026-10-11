@@ -107,6 +107,23 @@ def test_submit_program_manages_artifacts_when_receipt_is_omitted(monkeypatch) -
     assert submit.call_args.args[1].measurements[0].shots == 1024
 
 
+def test_cpu_program_keeps_cpu_runtime_on_accelerator_queue(monkeypatch) -> None:
+    client = _client()
+    submit = Mock(return_value={"jobId": "job-1"})
+    monkeypatch.setattr(
+        "flagquantum.remote.compute._managed_program.submit_managed_program",
+        submit,
+    )
+
+    client.submit_program(
+        fq.Circuit(1),
+        target="jiuding:cpu",
+        image="flagquantum-runtime:v1",
+    )
+
+    assert submit.call_args.kwargs["selected_target"] == "jiuding:cpu"
+
+
 def test_program_request_executes_through_standard_runtime(
     tmp_path: Path,
     monkeypatch,
