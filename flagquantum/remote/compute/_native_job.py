@@ -251,7 +251,7 @@ class NativeJiudingJobClient(JiudingClient):
                 raise ValueError(
                     "devices cannot exceed the circuit statevector amplitude count"
                 )
-        selected = f"jiuding:gpu/{model}" if chip == "gpu" else "jiuding:cpu"
+        selected = "jiuding:cpu" if chip == "cpu" else f"jiuding:{chip}/{model}"
         from ._workspace_executor import SCHEMA, VERSION
 
         run_id = uuid.uuid4().hex

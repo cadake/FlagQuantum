@@ -697,7 +697,11 @@ def test_submit_creates_then_launches_once_with_zero_gpu(client, tmp_path):
         "/api/v1/job",
     ]
     resource = calls[0].args[1]["advanceConfigInfos"][0]["resourceConfigList"][0]
-    assert resource["roleInfoList"][0]["resourceRequestDetail"]["acceleratorCount"] == 0
+    requested = resource["roleInfoList"][0]["resourceRequestDetail"]
+    assert requested["acceleratorCount"] == 0
+    assert requested["acceleratorModel"] == "NVIDIA_A100-SXM4-40GB"
+    assert receipt["resources"]["target"] == "jiuding:cpu"
+    assert receipt["resources"]["accelerator_model"] == ("NVIDIA_A100-SXM4-40GB")
     assert "test-token" not in json.dumps(receipt)
 
 

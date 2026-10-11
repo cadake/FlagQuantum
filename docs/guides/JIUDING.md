@@ -212,6 +212,9 @@ adapter allocates one instance (default 2 cores, 2 GiB, 0 GPUs).
 Select GPU execution explicitly with `target="jiuding:gpu"`; this first adapter
 allocates exactly one GPU. CPU is a first-class target, never an implicit
 fallback from an unavailable accelerator.
+An accelerator-backed queue can still run a CPU job. FlagQuantum keeps
+`target="jiuding:cpu"` as the runtime choice while sending the queue's physical
+accelerator model unchanged to Jiuding for placement.
 
 ```python
 receipt = client.submit(

@@ -223,6 +223,10 @@ or provisioned by FlagQuantum:
 - `target="jiuding:gpu"` is the FlagQuantum target selector; the chosen Jiuding
   queue determines the concrete GPU model. Use `jiuding:gpu/<model>` only when
   an exact model match is required.
+- `target="jiuding:cpu"` selects CPU execution inside the job. On an
+  accelerator-backed queue, FlagQuantum still preserves the queue's physical
+  accelerator model in the Jiuding scheduling request; runtime device selection
+  and platform placement are independent.
 
 Users must obtain project membership, queue access and the image reference from
 their Jiuding administrator or Jiuding console. One user's values generally do

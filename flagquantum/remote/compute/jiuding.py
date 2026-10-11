@@ -291,15 +291,18 @@ class JiudingClient(_ProgramSubmissionMixin):
             raise ValueError("Jiuding chip type must be cpu, gpu, mlu, npu or xpu")
         if model_separator and not model:
             raise ValueError("target model must not be empty")
+        available_model = self.workspace().get("acceleratorModel", "")
         if chip_type == "cpu":
             if model_separator:
                 raise ValueError("jiuding:cpu does not accept a model")
-            return chip_type, ""
+            # The runtime device and the scheduler placement are independent.
+            # Accelerator-backed queues still require their physical model in
+            # the Jiuding resource request even when the program runs on CPU.
+            return chip_type, available_model
         if chip_type != "gpu":
             raise NotImplementedError(
                 f"{target!r} is reserved but not implemented by JiudingClient"
             )
-        available_model = self.workspace().get("acceleratorModel", "")
         if not available_model:
             raise RuntimeError("The selected Jiuding queue exposes no GPU model")
         if model and model != available_model:
@@ -482,7 +485,9 @@ class JiudingClient(_ProgramSubmissionMixin):
 
         chip_type, model = self._resolve_compute_target(target)
         device = "cuda:0" if chip_type == "gpu" else "cpu"
-        effective_target = f"jiuding:gpu/{model}" if model else "jiuding:cpu"
+        effective_target = (
+            "jiuding:cpu" if chip_type == "cpu" else f"jiuding:{chip_type}/{model}"
+        )
         cached = self._executor_health.get(port)
         if (
             cached is not None
@@ -503,7 +508,9 @@ class JiudingClient(_ProgramSubmissionMixin):
             self._reset_workspace_connection()
             chip_type, model = self._resolve_compute_target(target)
             device = "cuda:0" if chip_type == "gpu" else "cpu"
-            effective_target = f"jiuding:gpu/{model}" if model else "jiuding:cpu"
+            effective_target = (
+                "jiuding:cpu" if chip_type == "cpu" else f"jiuding:{chip_type}/{model}"
+            )
             command = shlex.join(
                 [
                     python,
@@ -660,7 +667,9 @@ class JiudingClient(_ProgramSubmissionMixin):
         )
         self.start_executor(target=target, port=port, timeout=timeout)
         chip_type, model = self._resolve_compute_target(target)
-        effective_target = f"jiuding:gpu/{model}" if model else "jiuding:cpu"
+        effective_target = (
+            "jiuding:cpu" if chip_type == "cpu" else f"jiuding:{chip_type}/{model}"
+        )
         response = self._executor_request(
             {
                 "schema": "flagquantum.jiuding.workspace_executor",
@@ -706,7 +715,9 @@ class JiudingClient(_ProgramSubmissionMixin):
         ir = replace(ir, measurements=tuple(measurements) if measurements else ())
         self.start_executor(target=target, port=port, timeout=timeout)
         chip_type, model = self._resolve_compute_target(target)
-        effective_target = f"jiuding:gpu/{model}" if model else "jiuding:cpu"
+        effective_target = (
+            "jiuding:cpu" if chip_type == "cpu" else f"jiuding:{chip_type}/{model}"
+        )
         response = self._executor_request(
             {
                 "schema": "flagquantum.jiuding.workspace_executor",
