@@ -25,6 +25,24 @@ installation disabled for that pre-fix metadata. Native extension loading on
 that vendor runtime, multi-node execution, performance and capacity expansion
 were not certified by those checks.
 
+Source builds require setuptools 77.0.3 or newer for SPDX license metadata.
+Do not upgrade build tools in a managed vendor runtime if another package pins
+them (the C550 image's xformers pins setuptools 69.5.1). Build a wheel in a
+separate environment that can reuse the vendor torch, then install that wheel
+normally in the original runtime. For an already downloaded source checkout:
+
+```console
+python -m venv --system-site-packages /tmp/fq-build
+/tmp/fq-build/bin/python -m pip install 'setuptools>=77.0.3' wheel
+/tmp/fq-build/bin/python -m pip wheel . --no-build-isolation --no-deps -w /tmp/fq-dist
+python -m pip install /tmp/fq-dist/*.whl
+python -m pip check
+```
+
+Here `--no-deps` applies only to wheel construction, never to the final runtime
+installation. Use fresh build/output directories for each build. Published wheel
+users need none of these source-build steps.
+
 Every optional dependency
 group in `pyproject.toml` must have an exact, classified entry in that matrix;
 `python tools/check_dependency_policy.py` rejects missing groups, requirement
