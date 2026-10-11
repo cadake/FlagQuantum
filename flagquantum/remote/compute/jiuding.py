@@ -509,9 +509,7 @@ class JiudingClient(_ProgramSubmissionMixin):
             chip_type, model = self._resolve_compute_target(target)
             device = "cuda:0" if chip_type == "gpu" else "cpu"
             effective_target = (
-                "jiuding:cpu"
-                if chip_type == "cpu"
-                else f"jiuding:{chip_type}/{model}"
+                "jiuding:cpu" if chip_type == "cpu" else f"jiuding:{chip_type}/{model}"
             )
             command = shlex.join(
                 [

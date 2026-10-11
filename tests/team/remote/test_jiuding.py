@@ -701,9 +701,7 @@ def test_submit_creates_then_launches_once_with_zero_gpu(client, tmp_path):
     assert requested["acceleratorCount"] == 0
     assert requested["acceleratorModel"] == "NVIDIA_A100-SXM4-40GB"
     assert receipt["resources"]["target"] == "jiuding:cpu"
-    assert receipt["resources"]["accelerator_model"] == (
-        "NVIDIA_A100-SXM4-40GB"
-    )
+    assert receipt["resources"]["accelerator_model"] == ("NVIDIA_A100-SXM4-40GB")
     assert "test-token" not in json.dumps(receipt)
 
 
