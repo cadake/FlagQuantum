@@ -61,6 +61,12 @@ for `benchmarks/results/scalability/`.
 | Multi-node transport testing | `python tools/ci_tier.py multinode-scheduled` | Three workloads (statevector, MPS, tensor network), each partitioned across two nodes on one revision, driven by `tools/multinode_launch_plan.py`. | Release claims unless produced payloads also pass release validation. |
 | Release candidate or promoted benchmark claim | `python tools/ci_tier.py release` | Full non-performance-benchmark pytest plus benchmark root audit and scalability release scan. | Claims outside the audited payload. |
 
+The scheduled hardware workflow also runs the single-device density-matrix
+device/gradient and eager MPS TF32 precision regressions explicitly before the
+GPU tier. These tests need an accelerator but do not require distributed
+execution or Triton. They run on the existing scheduled/manual GPU runner, not
+on pull-request CPU runners.
+
 Equivalent direct marker commands are available when a focused local run is
 clearer:
 
