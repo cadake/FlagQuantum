@@ -224,6 +224,7 @@ def submit(
     program: Circuit | CircuitIR,
     *,
     target: str,
+    devices: int | None = None,
     outputs: OutputRequest | Sequence[OutputRequest] | None = None,
     shots: int | None = None,
     compiler: str | None = None,
@@ -266,8 +267,16 @@ def submit(
         client = NativeJiudingJobClient(
             project=selected_project, queue=queue, credentials=credentials
         )
+        selected_devices = 1 if devices is None else devices
+        if type(selected_devices) is not int or selected_devices < 1:
+            raise ValueError("devices must be a positive integer")
         native = client.submit_program(
-            ir, target=target, image=image, outputs=outputs, shots=shots
+            ir,
+            target=target,
+            image=image,
+            outputs=outputs,
+            shots=shots,
+            devices=selected_devices,
         )
         return RemoteJob(
             _Receipt(str(native["jobId"]), target, ir.n_wires, native_receipt=native),
@@ -275,10 +284,11 @@ def submit(
             native,
         )
     if any(
-        value is not None for value in (image, workspace, project, queue, credentials)
+        value is not None
+        for value in (image, workspace, project, queue, credentials, devices)
     ):
         raise TypeError(
-            "image, project, queue, workspace and credentials apply only to "
+            "image, project, queue, workspace, credentials and devices apply only to "
             "Jiuding submission"
         )
     return _submit_quafu(

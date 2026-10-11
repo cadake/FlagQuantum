@@ -108,6 +108,31 @@ job.save("jiuding-job.json")
 print(job.id)
 ```
 
+To run one circuit across multiple accelerators in the selected Jiuding queue,
+set `devices`. The model still comes from `target` (or from the queue when the
+model suffix is omitted):
+
+```python
+job = fq.submit(
+    fq.Circuit(30).h(0).cx(0, 29),
+    target="jiuding:gpu/NVIDIA_A100-SXM4-40GB",
+    devices=4,
+    project="YOUR_PROJECT_SET.YOUR_PROJECT",
+    queue="YOUR_A100_QUEUE",
+    image="YOUR_FLAGQUANTUM_IMAGE",
+    outputs=fq.expectation_ps(z=(0, 29)),
+    credentials=credentials,
+)
+```
+
+`devices=4` means four accelerators are reserved and four distributed ranks are
+started; it is not merely a scheduling hint. Multi-device jobs are currently
+single-node, GPU-only and require a power-of-two device count. The statevector
+evolution is sharded, while the current general result path explicitly gathers
+the state before materializing outputs. Inspect
+`result.runtime["distributed_execution"]` and
+`result.runtime["result_materialization"]` for the two sets of evidence.
+
 A submit-ready entry has this shape:
 
 ```python
