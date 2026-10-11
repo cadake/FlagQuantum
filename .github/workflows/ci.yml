@@ -619,6 +619,14 @@ jobs:
       matrix:
         include:
           - python: "3.10"
+            torch: "torch>=2.10,<2.11"
+          - python: "3.12"
+            torch: "torch>=2.10,<2.11"
+          - python: "3.12"
+            torch: "torch>=2.11,<2.12"
+          - python: "3.12"
+            torch: "torch>=2.12,<2.13"
+          - python: "3.10"
             torch: "torch>=2.13,<2.14"
           - python: "3.12"
             torch: "torch>=2.13,<2.14"
@@ -665,7 +673,7 @@ jobs:
       - run: python -m pip install build setuptools wheel
       # Reproducible artifacts are compiled against PyTorch's 2.10 Stable ABI.
       # The cold-install steps below validate the resulting artifacts against
-      # the separately declared 2.13+ runtime range.
+      # the declared runtime range, including preinstalled vendor baselines.
       - run: python -m pip install "torch>=2.10,<2.11" --index-url https://download.pytorch.org/whl/cpu
       - name: Reproducible wheel and sdist builds
         run: |
@@ -676,6 +684,19 @@ jobs:
           cp dist-a/* dist/
       - name: Verify artifact contents
         run: python tools/verify_distribution_artifacts.py dist
+      - name: Verify one wheel on older PyTorch runtimes
+        timeout-minutes: 15
+        run: |
+          python -m venv /tmp/fq-torch-compat
+          /tmp/fq-torch-compat/bin/python -m pip install packaging
+          for version in 2.10 2.11 2.12; do
+            /tmp/fq-torch-compat/bin/python -m pip install "torch==${version}.*" --index-url https://download.pytorch.org/whl/cpu
+            /tmp/fq-torch-compat/bin/python -m pip install dist/*.whl
+            (
+              cd /tmp
+              /tmp/fq-torch-compat/bin/python -c "import torch; from importlib.metadata import requires; from packaging.requirements import Requirement; r=next(Requirement(x) for x in requires('flagquantum') if Requirement(x).name == 'torch'); assert r.specifier.contains(torch.__version__), (r, torch.__version__); from flagquantum.simulation.native_cpu import adjoint; assert adjoint.native_cpu_adjoint_available(), repr(adjoint._EXTENSION_ERROR); import flagquantum as fq; assert fq.Circuit(2).h(0).cx(0,1).state().shape[-1] == 4"
+            )
+          done
       - name: Build and test the publishable manylinux wheel
         uses: pypa/cibuildwheel@v4.3.0
         with:

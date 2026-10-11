@@ -2,8 +2,7 @@
 
 [build-system]
 # Compile the native extension against the oldest PyTorch Stable ABI that we
-# target. Runtime users remain on the separately declared, security-supported
-# PyTorch range below.
+# target. Keep compatible preinstalled vendor runtimes within the runtime range.
 requires = ["setuptools>=61.0", "wheel", "torch>=2.10,<2.11"]
 build-backend = "setuptools.build_meta"
 
@@ -19,7 +18,7 @@ license-files = ["LICENSE"]
 readme = "README.md"
 requires-python = ">=3.10,<3.13"
 dependencies = [
-    "torch>=2.13,<2.15",
+    "torch>=2.10,<2.15",
     "tomli>=2.0,<3; python_version < '3.11'",
 ]
 

@@ -170,6 +170,21 @@ def test_cibuildwheel_builds_one_abi3_wheel_against_the_stable_torch_abi() -> No
     assert "_configure_msvc_environment()" in setup_configuration
 
 
+def test_one_wheel_is_loaded_on_the_older_runtime_minors() -> None:
+    workflow = _workflow(".github/workflows/ci.yml")
+    step = next(
+        item
+        for item in workflow["jobs"]["package"]["steps"]
+        if item.get("name") == "Verify one wheel on older PyTorch runtimes"
+    )
+    command = step["run"]
+    assert "for version in 2.10 2.11 2.12" in command
+    assert "pip install dist/*.whl" in command
+    assert "native_cpu_adjoint_available()" in command
+    assert "cd /tmp" in command
+    assert step["timeout-minutes"] >= 10
+
+
 def test_native_extension_avoids_compiler_specific_bit_builtins() -> None:
     source = (
         ROOT / "flagquantum/simulation/native_cpu/csrc/linear_permutation.h"

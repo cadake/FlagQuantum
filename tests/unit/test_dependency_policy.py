@@ -7,6 +7,7 @@ from pathlib import Path
 
 import pytest
 import yaml
+from packaging.requirements import Requirement
 
 from tools.check_dependency_policy import (
     development_floor_pins,
@@ -44,6 +45,38 @@ def _without_upper_bound(extras: list[str], name: str) -> list[str]:
 
 def test_dependency_policy_matches_packaging_exactly() -> None:
     assert policy_errors(*_inputs()) == ()
+
+
+@pytest.mark.parametrize(
+    "version,accepted",
+    [
+        ("2.10.0+metax3.8.1.0", True),
+        ("2.10.0", True),
+        ("2.14.0", True),
+        ("2.9.0", False),
+        ("2.15.0", False),
+    ],
+)
+def test_core_torch_requirement_preserves_vendor_runtime(
+    version: str, accepted: bool
+) -> None:
+    _, project = _inputs()
+    requirement = next(
+        Requirement(value)
+        for value in project["project"]["dependencies"]
+        if Requirement(value).name == "torch"
+    )
+    assert requirement.specifier.contains(version) is accepted
+
+
+def test_every_torch_minor_has_a_compatibility_lane() -> None:
+    policy, _ = _inputs()
+    workflow = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))
+    lanes = workflow["jobs"]["dependency-bounds"]["strategy"]["matrix"]["include"]
+    for version in policy["tested"]["torch"]:
+        assert any(
+            Requirement(lane["torch"]).specifier.contains(version) for lane in lanes
+        )
 
 
 def test_dependency_policy_rejects_unclassified_or_drifting_extras() -> None:
