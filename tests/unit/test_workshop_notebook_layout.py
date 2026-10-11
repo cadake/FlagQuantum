@@ -124,6 +124,8 @@ def test_jiuding_circuit_quick_start_does_not_resubmit(
     else:
         exec(source, namespace)
         assert not (tmp_path / "circuit_job.receipt.json").exists()
+        assert namespace["native_target"] == "jiuding:cpu"
+        assert namespace["devices"] == 1
 
 
 def test_first_lab_reports_configuration_without_exposing_values() -> None:
