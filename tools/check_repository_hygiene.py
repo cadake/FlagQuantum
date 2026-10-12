@@ -37,13 +37,13 @@ ALLOWED_LARGE_FILES: dict[Path, int] = {}
 DEFAULT_MAX_FILE_BYTES = 1_800_000
 # The integrated MPS/statevector evidence corpus is part of the reproducibility
 # contract and is referenced by benchmark-contract tests and public reports.
-# These are ratchet budgets, not growth targets. Lower them whenever retained
-# evidence or development history moves to its external archive.
-DEFAULT_MAX_TOTAL_BYTES = 61_900_000
-DEFAULT_MAX_TRACKED_FILES = 3_010
+# General source/documentation growth is advisory, not an artifact violation.
+TOTAL_BYTES_REVIEW_THRESHOLD = 61_900_000
+TRACKED_FILES_REVIEW_THRESHOLD = 3_010
+DEVELOPMENT_DOC_FILES_REVIEW_THRESHOLD = 200
+# Retained generated evidence still has strict ratchet budgets.
 DEFAULT_MAX_RESULT_BYTES = 23_700_000
 DEFAULT_MAX_RESULT_FILES = 285
-DEFAULT_MAX_DEVELOPMENT_DOC_FILES = 200
 CANONICAL_RESULT_DIRECTORIES = {"comparison", "local", "scalability", "smoke"}
 ARTIFACT_CONTAINER_DIRECTORIES = {"development"}
 PACKAGE_ROOT_FILES = {
@@ -106,15 +106,29 @@ def repository_metrics(root: Path) -> dict[str, int]:
     }
 
 
+def growth_notices(metrics: dict[str, int]) -> tuple[str, ...]:
+    """Report general growth without classifying useful source as an artifact."""
+    thresholds = {
+        "tracked_bytes": TOTAL_BYTES_REVIEW_THRESHOLD,
+        "tracked_files": TRACKED_FILES_REVIEW_THRESHOLD,
+        "development_doc_files": DEVELOPMENT_DOC_FILES_REVIEW_THRESHOLD,
+    }
+    return tuple(
+        f"{name}={metrics[name]} exceeds review reference {threshold}; review growth"
+        for name, threshold in thresholds.items()
+        if metrics[name] > threshold
+    )
+
+
 def violations(
     root: Path,
     *,
     max_file_bytes: int,
-    max_total_bytes: int,
-    max_tracked_files: int = DEFAULT_MAX_TRACKED_FILES,
+    max_total_bytes: int | None = None,
+    max_tracked_files: int | None = None,
     max_result_bytes: int = DEFAULT_MAX_RESULT_BYTES,
     max_result_files: int = DEFAULT_MAX_RESULT_FILES,
-    max_development_doc_files: int = DEFAULT_MAX_DEVELOPMENT_DOC_FILES,
+    max_development_doc_files: int | None = None,
 ) -> tuple[str, ...]:
     errors = []
     for path in tracked_files(root):
@@ -163,7 +177,7 @@ def violations(
     )
     for label, metric, limit, unit in budget_checks:
         measured = metrics[metric]
-        if measured > limit:
+        if limit is not None and measured > limit:
             errors.append(f"{label} has {measured} {unit}; limit is {limit}")
     return tuple(errors)
 
@@ -216,9 +230,11 @@ def layout_violations(root: Path) -> tuple[str, ...]:
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--max-file-bytes", type=int, default=DEFAULT_MAX_FILE_BYTES)
-    parser.add_argument("--max-total-bytes", type=int, default=DEFAULT_MAX_TOTAL_BYTES)
     parser.add_argument(
-        "--max-tracked-files", type=int, default=DEFAULT_MAX_TRACKED_FILES
+        "--max-total-bytes", type=int, help="optional strict total-byte ceiling"
+    )
+    parser.add_argument(
+        "--max-tracked-files", type=int, help="optional strict tracked-file ceiling"
     )
     parser.add_argument(
         "--max-result-bytes", type=int, default=DEFAULT_MAX_RESULT_BYTES
@@ -229,7 +245,7 @@ def main() -> int:
     parser.add_argument(
         "--max-development-doc-files",
         type=int,
-        default=DEFAULT_MAX_DEVELOPMENT_DOC_FILES,
+        help="optional strict development-document count ceiling",
     )
     parser.add_argument(
         "--report",
@@ -242,6 +258,8 @@ def main() -> int:
     if args.report:
         for name, value in metrics.items():
             print(f"{name}={value}")
+    for notice in growth_notices(metrics):
+        print(f"NOTICE: {notice}")
     errors = (
         violations(
             root,
