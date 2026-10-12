@@ -884,28 +884,9 @@ class JiudingClient(_ProgramSubmissionMixin):
         self, image: str, image_region: str = "PUBLIC"
     ) -> dict[str, Any]:
         """Resolve one exact image through Jiuding's image catalog."""
-        if image_region not in ("PUBLIC", "PRIVATE", "PROJSET", "AUTO"):
-            raise ValueError("image_region must be PUBLIC, PRIVATE or PROJSET")
-        leaf = image.rsplit("/", 1)[-1]
-        name, separator, tag = leaf.partition(":")
-        if not separator or not name or not tag:
-            raise ValueError("Use an exact image name and tag, such as name:v1")
-        if image_region == "AUTO":
-            matches = {}
-            for region in ("PROJSET", "PRIVATE", "PUBLIC"):
-                for item in self._catalog_matches(image, region):
-                    executable = item.get(
-                        "baseUrl" if region == "PUBLIC" else "registryUrl"
-                    )
-                    key = executable or (region, item["id"])
-                    matches.setdefault(key, {**item, "imageRegion": region})
-        else:
-            matches = {
-                item["id"]: item for item in self._catalog_matches(image, image_region)
-            }
-        if len(matches) != 1:
-            raise ValueError("Image was not uniquely resolved in the Jiuding catalog")
-        return next(iter(matches.values()))
+        from ._jiuding_images import resolve_catalog_image
+
+        return resolve_catalog_image(image, image_region, self._catalog_matches)
 
     def _catalog_matches(self, image: str, image_region: str) -> list[dict[str, Any]]:
         """Find exact accessible images without changing their sharing scope."""
