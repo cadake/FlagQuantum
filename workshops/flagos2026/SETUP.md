@@ -70,6 +70,16 @@ This is what *shared storage* means in this workshop. Installing FlagQuantum on 
 
 Your instructor will supply a compatible container image and confirm the Python executable inside it.
 An image contains the software that a cloud job starts with. Its Python path may differ from the one on your laptop.
+Notebook 04 automatically stages its program in a writable container mount listed in the development
+environment's Jiuding storage configuration and Linux mount table. Each submission gets a fresh directory
+for its script, receipt and result. Image-local `/opt` outputs are not used as remote job paths.
+It prefers `/share/project/flagquantum` when that path belongs to a verified configured mount;
+otherwise it selects another verified writable mount automatically. Existing project files are not overwritten.
+The image must contain FlagQuantum; the notebook does not inject its local source tree into the worker.
+Private catalog images use `image_region="PRIVATE"` by default. If staging reports no verified writable
+mount, the instructor must attach shared storage at the same container path in the development environment
+and its jobs. Creating an ordinary local folder does not fix missing shared storage. This preflight checks
+the inherited configuration, not live visibility inside a worker; it does not start a probe job.
 Existing Jiuding development environments can read their injected AK/SK credentials automatically.
 See the [Jiuding guide](../../docs/guides/JIUDING.md) for configuration details.
 
