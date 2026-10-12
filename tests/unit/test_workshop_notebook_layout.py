@@ -143,6 +143,8 @@ def test_workshop_locator_supports_both_deployment_layouts(
     relative_path: str,
     full_checkout: bool,
 ) -> None:
+    # This fixture models an offline checkout, not an authenticated platform pod.
+    monkeypatch.delenv("JIUDING_AK", raising=False)
     if full_checkout:
         repository = tmp_path / "repository"
         workshop = repository / "workshops" / "flagos2026"

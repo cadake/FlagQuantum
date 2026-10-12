@@ -70,11 +70,20 @@ This is what *shared storage* means in this workshop. Installing FlagQuantum on 
 
 Your instructor will supply a compatible container image and confirm the Python executable inside it.
 An image contains the software that a cloud job starts with. Its Python path may differ from the one on your laptop.
-Notebook 04 automatically stages its program in a writable container mount listed in the development
-environment's Jiuding storage configuration and Linux mount table. Each submission gets a fresh directory
-for its script, receipt and result. Image-local `/opt` outputs are not used as remote job paths.
-It prefers `/share/project/flagquantum` when that path belongs to a verified configured mount;
-otherwise it selects another verified writable mount automatically. Existing project files are not overwritten.
+Notebook 04 reads the current authenticated platform user ID, validates it as a single path component,
+and prepares a personal workshop copy. It first uses a configured personal `/home/<name>` mount in
+a development environment owned by that authenticated account. Otherwise, a verified project mount
+uses `/share/project/flagquantum/<platform-user-ID>/`. Linux UID and workspace creator ID are never
+used as substitutes for the authenticated identity. No writable verified location means no submission.
+Open the automatically prepared personal notebook before editing; the first cell refuses to continue
+from the shared template and prints your copy's location. No user-supplied ID or path configuration is needed.
+Notebooks and local outputs live under `workshop/flagos2026`; each task gets a fresh `jobs/bell-.../`
+directory for its script, receipt and result. Existing personal notebooks are never overwritten, and
+template outputs, environment files and notebook checkpoints are not copied.
+Different IDs prevent accidental file/receipt collisions, not unauthorized access. Instructors must
+provide per-user platform credentials and enforce storage ACLs or per-user mounts at the platform level.
+Shared service-account credentials cannot distinguish individual users; directory permissions alone
+do not isolate multiple root containers. The public project is only a namespaced fallback, not a security sandbox.
 The image must contain FlagQuantum; the notebook does not inject its local source tree into the worker.
 Private catalog images use `image_region="PRIVATE"` by default. If staging reports no verified writable
 mount, the instructor must attach shared storage at the same container path in the development environment
