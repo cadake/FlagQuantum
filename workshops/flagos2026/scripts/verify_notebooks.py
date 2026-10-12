@@ -14,6 +14,7 @@ REMOTE_SWITCHES = {
     "check_job",
     "cancel_job",
     "submit_to_hardware",
+    "submit_to_cloud",
     "submit_trained_circuit",
     "submit_sweep",
     "compile_for_hardware",

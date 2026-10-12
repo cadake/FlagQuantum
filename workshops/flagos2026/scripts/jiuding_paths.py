@@ -89,6 +89,11 @@ def personal_directory(
             "Jiuding authenticated user has no safe platform ID; no files written."
         )
     uid = str(value)
+    # An image may reserve a fresh rehearsal namespace without replacing earlier
+    # notebooks. Learners do not configure it; jobs inherit the same setting.
+    instance = os.getenv("FLAGQUANTUM_WORKSHOP_INSTANCE", "")
+    if instance and not re.fullmatch(r"[A-Za-z0-9_-]{1,128}", instance):
+        raise RuntimeError("Workshop instance must be a safe image-defined name.")
     workspace = client.workspace()
     project_ids = (workspace.get("projsetId"), workspace.get("projId"))
     defaults = {}
@@ -108,6 +113,8 @@ def personal_directory(
     choices = [personal[0] / "flagquantum-workspace" / uid] if personal else []
     if any(project.is_relative_to(path) for path in mounts):
         choices.append(project / uid)
+    if instance:
+        choices = [directory / "instances" / instance for directory in choices]
     for directory in choices:
         if directory.resolve() != directory:
             raise RuntimeError("Personal workspace must not contain symlinks.")

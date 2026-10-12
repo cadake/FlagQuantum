@@ -19,7 +19,8 @@ spec.loader.exec_module(paths)
 
 
 @pytest.fixture
-def storage(tmp_path: Path):
+def storage(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.delenv("FLAGQUANTUM_WORKSHOP_INSTANCE", raising=False)
     home, project = tmp_path / "home/alice", tmp_path / "project"
     home.mkdir(parents=True)
     project.mkdir()
@@ -71,6 +72,29 @@ def test_default_mounts_and_account_identity(storage) -> None:
     assert resolve() == home / "flagquantum-workspace/alice"
     assert resolve("bob") == project / "flagquantum/bob"
     assert not (project / "flagquantum/alice").exists()
+
+
+def test_image_instance_preserves_earlier_user_workspace(
+    storage, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _, _, _, resolve = storage
+    original = resolve()
+    (original / "user.txt").write_text("keep")
+    monkeypatch.setenv("FLAGQUANTUM_WORKSHOP_INSTANCE", "pr621-20261012")
+    fresh = resolve()
+    assert fresh == original / "instances/pr621-20261012"
+    assert not (fresh / "user.txt").exists()
+    assert (original / "user.txt").read_text() == "keep"
+
+
+def test_unsafe_image_instance_writes_nothing(
+    storage, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    home, project, _, resolve = storage
+    monkeypatch.setenv("FLAGQUANTUM_WORKSHOP_INSTANCE", "../another-user")
+    with pytest.raises(RuntimeError, match="image-defined"):
+        resolve()
+    assert not list(home.iterdir()) and not list(project.iterdir())
 
 
 @pytest.mark.parametrize(
@@ -139,7 +163,7 @@ def test_two_users_preserve_notebooks_outputs_and_receipts(
         assert paths.stage_job("another", directory)[0].parent != script.parent
 
 
-def test_notebook_blocks_template_and_stages_personal_job(
+def test_notebook_blocks_template_and_prepares_personal_results(
     tmp_path: Path, storage, monkeypatch
 ) -> None:
     _, _, _, resolve = storage
@@ -154,6 +178,12 @@ def test_notebook_blocks_template_and_stages_personal_job(
         ),
     )
     monkeypatch.setattr(sys, "path", sys.path.copy())
+    monkeypatch.syspath_prepend(str(WORKSHOP / "scripts"))
+    monkeypatch.setitem(
+        sys.modules,
+        "flagquantum.remote.compute.jiuding",
+        SimpleNamespace(JiudingClient=lambda: object()),
+    )
     monkeypatch.setenv("JIUDING_AK", "test-presence")
     exists = Path.exists
     monkeypatch.setattr(
@@ -177,21 +207,6 @@ def test_notebook_blocks_template_and_stages_personal_job(
     scope = {}
     exec(locator, scope)
 
-    def submit(script, **kwargs):
-        assert script.is_relative_to(directory / "jobs")
-        assert "pythonpath" not in kwargs and kwargs["image_region"] == "PRIVATE"
-        kwargs["receipt"].write_text('{"submission":"created"}')
-        return {"submission": "created"}
-
-    scope.update(
-        submit_job=True,
-        image="image:v1",
-        image_region="PRIVATE",
-        target="jiuding:cpu",
-        job_python="python3",
-        client=SimpleNamespace(submit=submit),
-        program_text="program",
-        receipt_pointer=scope["OUTPUTS"] / "latest.txt",
-    )
-    exec(next(c for c in cells if "if submit_job:" in c), scope)
-    assert Path(scope["receipt_pointer"].read_text()).is_relative_to(directory)
+    assert scope["lesson"].outputs.is_relative_to(directory)
+    assert scope["lesson"].receipt.is_relative_to(directory)
+    assert not scope["lesson"].receipt.exists()

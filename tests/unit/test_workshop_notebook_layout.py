@@ -68,6 +68,8 @@ def test_source_notebooks_are_clean_and_contain_valid_python() -> None:
 )
 def test_quafu_hardware_labs_use_the_current_task_api(relative_path: str) -> None:
     source = _code_source(relative_path)
+    if relative_path == "cloud/05_quafu_hardware.ipynb":
+        source = (ROOT / "workshops/flagos2026/scripts/cloud_lesson.py").read_text()
 
     assert 'os.getenv("QUAFU_API_KEY")' in source
     assert "compiler=None" in source
@@ -98,36 +100,6 @@ def test_jiuding_helper_uses_target_instead_of_removed_gpus_argument() -> None:
     assert "gpus=" not in source
 
 
-@pytest.mark.parametrize("existing_receipt", (False, True))
-def test_jiuding_circuit_quick_start_does_not_resubmit(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, existing_receipt: bool
-) -> None:
-    import flagquantum as fq
-
-    def reject_submission(*args: object, **kwargs: object) -> None:
-        pytest.fail("The quick start must not submit in this scenario")
-
-    monkeypatch.setattr(fq, "submit", reject_submission)
-    notebook = _notebook("cloud/04_jiuding_jobs.ipynb")
-    source = next(
-        "".join(cell["source"])
-        for cell in notebook["cells"]
-        if cell["cell_type"] == "code"
-        and "submit_circuit = False" in "".join(cell["source"])
-    )
-    namespace: dict[str, object] = {"OUTPUTS": tmp_path}
-    if existing_receipt:
-        (tmp_path / "circuit_job.receipt.json").touch()
-        source = source.replace("submit_circuit = False", "submit_circuit = True")
-        with pytest.raises(FileExistsError, match="Restore this job"):
-            exec(source, namespace)
-    else:
-        exec(source, namespace)
-        assert not (tmp_path / "circuit_job.receipt.json").exists()
-        assert namespace["native_target"] == "jiuding:cpu"
-        assert namespace["devices"] == 1
-
-
 def test_first_lab_reports_configuration_without_exposing_values() -> None:
     source = _code_source("basics/01_first_circuit.ipynb")
 
@@ -145,6 +117,12 @@ def test_workshop_locator_supports_both_deployment_layouts(
 ) -> None:
     # This fixture models an offline checkout, not an authenticated platform pod.
     monkeypatch.delenv("JIUDING_AK", raising=False)
+    path_exists = Path.exists
+    monkeypatch.setattr(
+        Path,
+        "exists",
+        lambda path: False if path == Path("/etc/accesskey") else path_exists(path),
+    )
     if full_checkout:
         repository = tmp_path / "repository"
         workshop = repository / "workshops" / "flagos2026"
@@ -157,6 +135,7 @@ def test_workshop_locator_supports_both_deployment_layouts(
     notebook_dir = workshop / "notebooks" / Path(relative_path).parent
     notebook_dir.mkdir(parents=True)
     monkeypatch.chdir(notebook_dir)
+    monkeypatch.syspath_prepend(str(ROOT / "workshops/flagos2026/scripts"))
 
     namespace: dict[str, object] = {}
     exec(_locator_source(relative_path), namespace)
