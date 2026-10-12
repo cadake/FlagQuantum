@@ -267,8 +267,11 @@ class NativeJiudingJobClient(JiudingClient):
             run_id,
             devices=devices,
         )
-        catalog = self._catalog_image(image, "PRIVATE")
-        executable = catalog.get("registryUrl")
+        catalog = self._catalog_image(image, "AUTO")
+        image_region = catalog["imageRegion"]
+        executable = catalog.get(
+            "baseUrl" if image_region == "PUBLIC" else "registryUrl"
+        )
         if not isinstance(executable, str) or not executable:
             raise ValueError("Image has no executable registry URL")
         # Preflight the same authenticated log service used for result retrieval.
@@ -308,7 +311,7 @@ class NativeJiudingJobClient(JiudingClient):
                 command=command,
                 w=w,
                 executable_image=executable,
-                image_region="PRIVATE",
+                image_region=image_region,
                 model=model,
                 gpus=devices if chip == "gpu" else 0,
                 cpus=max(2, devices),

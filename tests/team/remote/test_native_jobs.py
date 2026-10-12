@@ -198,7 +198,10 @@ def test_multi_device_submission_reserves_the_same_number_of_accelerators(
     monkeypatch.setattr(
         client,
         "_catalog_image",
-        lambda image, region: {"registryUrl": "registry/image"},
+        lambda image, region: {
+            "registryUrl": "registry/image",
+            "imageRegion": "PROJSET",
+        },
     )
     monkeypatch.setattr(
         client,
@@ -220,6 +223,7 @@ def test_multi_device_submission_reserves_the_same_number_of_accelerators(
         devices=4,
     )
     assert captured["gpus"] == 4
+    assert captured["image_region"] == "PROJSET"
     assert captured["cpus"] >= 4
     assert "--nproc-per-node=4" in captured["command"]
     assert receipt["devices"] == 4
