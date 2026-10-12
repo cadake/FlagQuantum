@@ -10,20 +10,21 @@ want to answer; every notebook creates its own state and runs in a fresh kernel.
 
 | Example | The question | Standard APIs to remember | Evidence you should obtain |
 | --- | --- | --- | --- |
-| [Build and measure a Bell circuit](notebooks/basics/01_first_circuit.ipynb) | What do amplitudes and probabilities mean? | `fq.Circuit`, gates, `fq.run` | The expected Bell probabilities and a checked plot |
-| [Train a quantum parameter](notebooks/training/03_quantum_training.ipynb) | How does a circuit learn a target? | `fq.Module`, PyTorch gradients and optimizer | A finite gradient and decreasing loss |
-| [Combine classical and quantum layers](notebooks/training/07_hybrid_model.ipynb) | Can one optimizer train both? | `fq.Module`, `torch.nn.Sequential` | Held-out predictions and updates in both layers |
-| [One objective, three simulators](notebooks/simulation/18_one_problem_three_simulators.ipynb) | Can I change representation without changing the problem? | `fq.run`, `fq.expectation`, `fq.ExecutionOptions` | Independent energy reference, gradient agreement and convergence |
-| [Run a circuit on Jiuding](notebooks/cloud/04_jiuding_jobs.ipynb) | How is remote execution different from local execution? | `fq.submit`, `job.status`, `job.wait`, receipts | A real CPU job and local/remote agreement |
-| [Measure on Quafu](notebooks/cloud/05_quafu_hardware.ipynb) | How do hardware counts differ from an ideal prediction? | `fq.submit`, `fq.counts`, `job.result` | A real task ID, shot accounting and interpretable counts |
+| [Build and measure a Bell circuit](notebooks/01_first_circuit.ipynb) | What do amplitudes and probabilities mean? | `fq.Circuit`, gates, `fq.run` | The expected Bell probabilities and a checked plot |
+| [Train a quantum parameter](notebooks/02_quantum_training.ipynb) | How does a circuit learn a target? | `fq.Module`, PyTorch gradients and optimizer | A finite gradient and decreasing loss |
+| [Combine classical and quantum layers](notebooks/03_hybrid_model.ipynb) | Can one optimizer train both? | `fq.Module`, `torch.nn.Sequential` | Held-out predictions and updates in both layers |
+| [One objective, three simulators](notebooks/04_one_problem_three_simulators.ipynb) | Can I change representation without changing the problem? | `fq.run`, `fq.expectation`, `fq.ExecutionOptions` | Independent energy reference, gradient agreement and convergence |
+| [Run a circuit on Jiuding](notebooks/05_jiuding_jobs.ipynb) | How is remote execution different from local execution? | `fq.submit`, `job.status`, `job.wait`, receipts | A real CPU job and local/remote agreement |
+| [Measure on Quafu](notebooks/06_quafu_hardware.ipynb) | How do hardware counts differ from an ideal prediction? | `fq.submit`, `fq.counts`, `job.result` | A real task ID, shot accounting and interpretable counts |
 
 The first four examples need only a laptop CPU. The final two require access to
 the named service; submitting consumes real resources. A disabled switch is a
 local rehearsal, not evidence that a cloud job ran. Queue waits are not failures,
 and a task ID alone does not prove completion.
 
-Notebook filenames retain their existing numbers to preserve links; those
-numbers do not define the new course order.
+The six notebooks sit directly in notebooks/, numbered 01–06 in learning order.
+Optional material lives separately in reference_notebooks/; its original numbers
+are reference identifiers, not additional course steps.
 
 ## How to use each example
 
@@ -66,13 +67,13 @@ cloud submission are different evidence. See [Validation](VALIDATION.md).
 The remaining notebooks are retained for deeper questions; they are not extra
 steps beginners must complete. No existing learning material is deleted.
 
-- Devices and finite shots: [02](notebooks/basics/02_cpu_gpu.ipynb), [09](notebooks/basics/09_shots.ipynb).
-- Physics applications: [08 VQE](notebooks/applications/08_vqe.ipynb), [15 Max-Cut](notebooks/applications/15_maxcut.ipynb).
-- Noise and compact states: [10](notebooks/simulation/10_noise.ipynb), [11 MPS](notebooks/simulation/11_mps.ipynb).
-- Gradient verification: [14](notebooks/training/14_gradients.ipynb).
-- Compilation and extensions: [12](notebooks/compilation/12_compilation.ipynb), [17](notebooks/compilation/17_extension.ipynb).
-- Hardware comparison and deployment of a trained angle: [06](notebooks/cloud/06_compare_results.ipynb), [13](notebooks/cloud/13_trained_hardware.ipynb).
-- Multiple cloud experiments: [16](notebooks/cloud/16_cloud_sweep.ipynb).
+- Devices and finite shots: [02](reference_notebooks/basics/02_cpu_gpu.ipynb), [09](reference_notebooks/basics/09_shots.ipynb).
+- Physics applications: [08 VQE](reference_notebooks/applications/08_vqe.ipynb), [15 Max-Cut](reference_notebooks/applications/15_maxcut.ipynb).
+- Noise and compact states: [10](reference_notebooks/simulation/10_noise.ipynb), [11 MPS](reference_notebooks/simulation/11_mps.ipynb).
+- Gradient verification: [14](reference_notebooks/training/14_gradients.ipynb).
+- Compilation and extensions: [12](reference_notebooks/compilation/12_compilation.ipynb), [17](reference_notebooks/compilation/17_extension.ipynb).
+- Hardware comparison and deployment of a trained angle: [06](reference_notebooks/cloud/06_compare_results.ipynb), [13](reference_notebooks/cloud/13_trained_hardware.ipynb).
+- Multiple cloud experiments: [16](reference_notebooks/cloud/16_cloud_sweep.ipynb).
 
 [Cloud job field notes](CLOUD_JOBS.md) cover complete Python programs, accelerator
 selection, raw public-API examples and recovery. [Field notes](FIELD_NOTES.md)

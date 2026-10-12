@@ -70,7 +70,7 @@ This is what *shared storage* means in this workshop. Installing FlagQuantum on 
 
 Your instructor will supply a compatible container image and confirm the Python executable inside it.
 An image contains the software that a cloud job starts with. Its Python path may differ from the one on your laptop.
-Notebook 04 automatically prepares a personal copy using the authenticated platform user ID, never
+The Jiuding notebook (05) automatically prepares a personal copy using the authenticated platform user ID, never
 Linux UID or workspace owner as identity. It prefers verified personal `/home/<name>` storage;
 the fallback is `/share/project/flagquantum/<ID>/`. `mountPointPath` can be empty for platform defaults:
 directory types 2/4 are matched against kernel bind roots containing the project IDs and user ID/PUBLIC.
@@ -93,7 +93,7 @@ See the [Jiuding guide](../../docs/guides/JIUDING.md) for configuration details.
 The hardware notebooks use the current Quafu Task API with server-side compilation. They read `QUAFU_API_KEY`
 and, when a non-default endpoint is required, `QUAFU_TASK_SERVER_URL` from the process environment. The instructor
 should supply these through the platform's secret settings. Do not type keys into notebook cells, print them, or
-commit them to Git. The optional QSteed plugin and legacy `QUAFU_API_TOKEN` are not required for notebooks 05 and 13.
+commit them to Git. The optional QSteed plugin and legacy `QUAFU_API_TOKEN` are not required for example 06 or reference notebook 13.
 See the [Quafu guide](../../docs/guides/QUAFU_BACKEND.md) for details.
 
 ## When you finish

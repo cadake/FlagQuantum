@@ -29,7 +29,7 @@ def workshop_directory(start: Path) -> Path:
         personal = prepare_workshop(workshop, personal_directory(JiudingClient()))
         if not start.is_relative_to(personal):
             raise RuntimeError(
-                f"Personal copy is ready. Open {personal / 'notebooks/cloud'}; "
+                f"Personal copy is ready. Open {personal / 'notebooks'}; "
                 "the common template is unchanged."
             )
         workshop = personal

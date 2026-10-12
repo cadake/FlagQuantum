@@ -110,3 +110,32 @@ No new QPU or Jiuding task was submitted.
 
 The README now highlights the three featured experiments, and FIELD_NOTES.md provides prediction and interpretation prompts.
 The instructor guide includes a first-time-reader pilot procedure. That human usability pilot and live event-resource rehearsal remain pending.
+# Current layout and historical numbering
+
+The main course now consists of six flat notebooks numbered 01–06. Earlier
+validation records below retain their original lab numbers: original 01, 03,
+07, 18, 04 and 05 correspond to current examples 01, 02, 03, 04, 05 and 06.
+The other twelve notebooks are preserved in reference_notebooks/. Moving files
+does not establish a new live execution pass or alter the recorded outcomes.
+
+## October 12: revised cloud examples, real submissions
+
+The personal copies of revision `5a2270e29` were opened and executed cell by
+cell with real submissions enabled, before the filename-only course reordering.
+One initial task per provider was submitted. After restarting each kernel,
+the notebook restored the same task ID. Repeating receipt preflight and the
+submission cell made zero new `fq.submit` calls, observed through a forwarding
+wrapper around the original API. Temporary diagnostics were removed afterward.
+
+Recovery and duplicate prevention passed; end-to-end execution did not:
+
+- Jiuding reported `Succeed`, but result collection timed out. Read-only Loki
+  queries returned zero result lines, including a query for the unique result
+  prefix without the job-label filter. The underlying cause is not established.
+- Quafu accepted the task, then returned `Failed` with
+  `precheck.edgeUnusable`, stage `precheck`, `retryable=False`, and no counts.
+  This does not establish which physical edge caused the precheck failure.
+
+No automatic retry task was created. Existing receipts/results were preserved.
+The immutable private image has not been rebuilt with the current source.
+Two-account storage authorization isolation remains unverified.

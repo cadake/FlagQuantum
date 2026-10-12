@@ -59,7 +59,7 @@ class FakeJob:
 
 @pytest.fixture
 def setup(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> SimpleNamespace:
-    start = tmp_path / "flagos2026/notebooks/cloud"
+    start = tmp_path / "flagos2026/notebooks"
     start.mkdir(parents=True)
     monkeypatch.chdir(start)
     monkeypatch.syspath_prepend(str(WORKSHOP / "scripts"))
@@ -107,11 +107,11 @@ def setup(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> SimpleNamespace:
 
     torch.__dict__["testing"] = SimpleNamespace(assert_close=assert_close)
     monkeypatch.setitem(sys.modules, "torch", torch)
-    return SimpleNamespace(job=job, calls=calls, outputs=start.parents[1] / "outputs")
+    return SimpleNamespace(job=job, calls=calls, outputs=start.parent / "outputs")
 
 
 def run_cells(filename: str, *, enabled: bool) -> dict[str, Any]:
-    notebook = json.loads((WORKSHOP / "notebooks/cloud" / filename).read_text())
+    notebook = json.loads((WORKSHOP / "notebooks" / filename).read_text())
     scope: dict[str, Any] = {}
     for cell in notebook["cells"]:
         if cell["cell_type"] == "code":
@@ -128,7 +128,7 @@ def run_cells(filename: str, *, enabled: bool) -> dict[str, Any]:
 
 
 @pytest.mark.parametrize(
-    "filename", ("04_jiuding_jobs.ipynb", "05_quafu_hardware.ipynb")
+    "filename", ("05_jiuding_jobs.ipynb", "06_quafu_hardware.ipynb")
 )
 @pytest.mark.parametrize("enabled", (False, True))
 def test_all_standard_api_cells_run_and_reruns_do_not_submit(
@@ -141,7 +141,7 @@ def test_all_standard_api_cells_run_and_reruns_do_not_submit(
         assert scope["job"] is setup.job
         assert scope["receipt_path"].exists()
         request = setup.calls[0]
-        if filename.startswith("04"):
+        if filename.startswith("05"):
             assert (
                 request["queue"] == "test-queue"
                 and request["image"] == "verified:image"
@@ -158,7 +158,7 @@ def test_all_standard_api_cells_run_and_reruns_do_not_submit(
 
 
 @pytest.mark.parametrize(
-    "filename", ("04_jiuding_jobs.ipynb", "05_quafu_hardware.ipynb")
+    "filename", ("05_jiuding_jobs.ipynb", "06_quafu_hardware.ipynb")
 )
 def test_pending_result_is_not_failure_or_duplicate(
     setup: SimpleNamespace, filename: str
@@ -170,12 +170,12 @@ def test_pending_result_is_not_failure_or_duplicate(
 
 
 def test_changed_request_is_rejected(setup: SimpleNamespace) -> None:
-    scope = run_cells("05_quafu_hardware.ipynb", enabled=True)
+    scope = run_cells("06_quafu_hardware.ipynb", enabled=True)
     record = json.loads(scope["guard_path"].read_text())
     record["circuit_hash"] = "different-circuit"
     scope["guard_path"].write_text(json.dumps(record))
     with pytest.raises(RuntimeError, match="another experiment"):
-        run_cells("05_quafu_hardware.ipynb", enabled=True)
+        run_cells("06_quafu_hardware.ipynb", enabled=True)
     assert len(setup.calls) == 1
 
 
@@ -183,14 +183,14 @@ def test_uncertain_attempt_cannot_be_retried(setup: SimpleNamespace) -> None:
     setup.outputs.mkdir()
     (setup.outputs / "quafu-bell.submission.json").write_text("{}")
     with pytest.raises(RuntimeError, match="do not resubmit"):
-        run_cells("05_quafu_hardware.ipynb", enabled=True)
+        run_cells("06_quafu_hardware.ipynb", enabled=True)
     assert setup.calls == []
 
 
 def test_failed_job_is_not_hidden(setup: SimpleNamespace) -> None:
     setup.job.outcome = "failed"
     with pytest.raises(RuntimeError, match="Backend failed"):
-        run_cells("05_quafu_hardware.ipynb", enabled=True)
+        run_cells("06_quafu_hardware.ipynb", enabled=True)
     assert len(setup.calls) == 1
 
 
@@ -204,8 +204,8 @@ def test_save_failure_keeps_guard_and_prints_id(
 
     monkeypatch.setattr(setup.job, "save", reject)
     with pytest.raises(OSError):
-        run_cells("05_quafu_hardware.ipynb", enabled=True)
+        run_cells("06_quafu_hardware.ipynb", enabled=True)
     assert "saved-task" in capsys.readouterr().out
     with pytest.raises(RuntimeError, match="do not resubmit"):
-        run_cells("05_quafu_hardware.ipynb", enabled=True)
+        run_cells("06_quafu_hardware.ipynb", enabled=True)
     assert len(setup.calls) == 1

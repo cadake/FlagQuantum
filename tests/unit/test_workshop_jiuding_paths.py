@@ -190,11 +190,9 @@ def test_notebook_blocks_template_and_prepares_personal_results(
         Path, "exists", lambda p: p == Path("/etc/accesskey") or exists(p)
     )
     template = tmp_path / "flagos2026"
-    cwd = template / "notebooks/cloud"
+    cwd = template / "notebooks"
     cwd.mkdir(parents=True)
-    notebook = json.loads(
-        (WORKSHOP / "notebooks/cloud/04_jiuding_jobs.ipynb").read_text()
-    )
+    notebook = json.loads((WORKSHOP / "notebooks/05_jiuding_jobs.ipynb").read_text())
     cells = [
         "".join(c["source"]) for c in notebook["cells"] if c["cell_type"] == "code"
     ]
@@ -203,7 +201,7 @@ def test_notebook_blocks_template_and_prepares_personal_results(
     with pytest.raises(RuntimeError, match="Personal copy is ready"):
         exec(locator, {})
     assert not (template / "outputs").exists()
-    monkeypatch.chdir(directory / "workshop/flagos2026/notebooks/cloud")
+    monkeypatch.chdir(directory / "workshop/flagos2026/notebooks")
     scope = {}
     exec(locator, scope)
 

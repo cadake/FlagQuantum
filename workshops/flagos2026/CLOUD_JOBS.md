@@ -1,6 +1,6 @@
 # Cloud job field notes
 
-Notebooks 04 and 05 teach the standard `fq.submit()` → `job.status()` →
+Notebooks 05 and 06 teach the standard `fq.submit()` → `job.status()` →
 `job.wait()` / `job.result()` workflow. `job.save()` and `fq.restore_job()` let
 you continue after a kernel restart. There is no workshop-specific execution API.
 Folded setup cells reserve a submission record before the POST, reject changed
