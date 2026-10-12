@@ -31,6 +31,12 @@ Plan for the number of people who will submit at the same time. If hardware acce
 let each group submit one task and discuss its result together.
 A *shot* is one repetition of a circuit followed by a measurement; the default hardware exercise uses 1024 shots.
 
+Example 06 defaults to Baihua, which returned 1024 real shots in the October 12
+rehearsal. Set `QUAFU_TARGET` in the event environment if another device is
+authorized and available. Availability and key permissions must be rechecked
+before teaching. The automatic `all-redispatch` route was not permitted for the
+test key; do not assume a routing target is available to every account.
+
 Use current platform checks when planning capacity. A CPU job has previously completed through the Jiuding adapter,
 and a Bell calculation has run on an A100 in an existing development environment.
 An earlier request for a new GPU job remained queued for 180 seconds and was cancelled.

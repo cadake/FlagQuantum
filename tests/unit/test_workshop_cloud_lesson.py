@@ -64,6 +64,7 @@ def setup(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> SimpleNamespace:
     monkeypatch.chdir(start)
     monkeypatch.syspath_prepend(str(WORKSHOP / "scripts"))
     monkeypatch.delenv("JIUDING_AK", raising=False)
+    monkeypatch.delenv("QUAFU_TARGET", raising=False)
     exists = Path.exists
     monkeypatch.setattr(
         Path, "exists", lambda p: False if p == Path("/etc/accesskey") else exists(p)
@@ -177,6 +178,25 @@ def test_changed_request_is_rejected(setup: SimpleNamespace) -> None:
     with pytest.raises(RuntimeError, match="another experiment"):
         run_cells("06_quafu_hardware.ipynb", enabled=True)
     assert len(setup.calls) == 1
+
+
+def test_hardware_default_and_explicit_target_override(
+    setup: SimpleNamespace, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    run_cells("06_quafu_hardware.ipynb", enabled=True)
+    assert setup.calls[0]["target"] == "quafu:Baihua"
+    monkeypatch.setenv("QUAFU_TARGET", "quafu:Dongling")
+    with pytest.raises(RuntimeError, match="another experiment"):
+        run_cells("06_quafu_hardware.ipynb", enabled=True)
+    assert len(setup.calls) == 1
+
+
+def test_configured_hardware_target_is_used_for_a_fresh_experiment(
+    setup: SimpleNamespace, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("QUAFU_TARGET", "quafu:Dongling")
+    run_cells("06_quafu_hardware.ipynb", enabled=True)
+    assert setup.calls[0]["target"] == "quafu:Dongling"
 
 
 def test_uncertain_attempt_cannot_be_retried(setup: SimpleNamespace) -> None:

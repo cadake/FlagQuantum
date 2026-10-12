@@ -139,3 +139,24 @@ Recovery and duplicate prevention passed; end-to-end execution did not:
 No automatic retry task was created. Existing receipts/results were preserved.
 The immutable private image has not been rebuilt with the current source.
 Two-account storage authorization isolation remains unverified.
+
+## October 12: authorized-device Quafu follow-up
+
+The current task service rejected an explicit `all-redispatch` test with HTTP
+403, `backend_not_allowed`; that target was not permitted for the test key.
+This is not evidence that all hardware submissions are forbidden. Read-only
+inventory showed Baihua and Dongling online, with the other named hardware
+devices calibrating.
+
+A separate, explicit Baihua hardware submission returned task
+`ua7e5aa75-261012-191610` and counts
+`{'11': 481, '00': 507, '01': 23, '10': 13}`, totaling 1024 real shots.
+The original Dongling precheck failure is unchanged. Example 06 now defaults to
+Baihua and supports an instructor-provided `QUAFU_TARGET`; it does not silently
+retry or redirect a submitted task. Existing receipts must match the selected
+target, so changing configuration cannot rebind an old task.
+
+Jiuding remains unverified end to end. Its query matches the platform's own
+dashboard template, and adding cluster/project headers still returned no logs.
+A single-line-command diagnostic was rejected at experiment creation with HTTP
+403 and returned no job ID; the command hypothesis has not been validated.
