@@ -68,8 +68,6 @@ def test_source_notebooks_are_clean_and_contain_valid_python() -> None:
 )
 def test_quafu_hardware_labs_use_the_current_task_api(relative_path: str) -> None:
     source = _code_source(relative_path)
-    if relative_path == "cloud/05_quafu_hardware.ipynb":
-        source = (ROOT / "workshops/flagos2026/scripts/cloud_lesson.py").read_text()
 
     assert 'os.getenv("QUAFU_API_KEY")' in source
     assert "compiler=None" in source

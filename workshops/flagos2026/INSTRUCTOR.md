@@ -5,7 +5,9 @@ Leave time for reading results and trying changes, rather than asking everyone t
 
 ## Let participants choose their route
 
-Use the catalog in README.md to introduce the tracks. Do not make everyone complete all 18 labs in order.
+Use the six main examples in README.md. Start with 01, then choose 03, 07 or 18
+by the participant's interests; 04 and 05 are optional real-service sessions.
+The other twelve notebooks are reference material, not required coursework.
 Ask participants what they want to build and whether they are comfortable with PyTorch, quantum circuits, or numerical methods.
 Offer a beginner table, an AI/science table, and a systems/extensions table when staffing allows.
 All tables can share short demonstrations of real-device results.
@@ -39,14 +41,14 @@ Check the current [Jiuding guide](../../docs/guides/JIUDING.md) and repeat the t
 
 1. Record the software and image versions using the [environment notes](environment/README.md).
 2. Sign in with a fresh participant account. Check that the exercises do not depend on an instructor's private files or credentials.
-3. Run notebooks 01–03. Expect Bell probabilities near `[0.5, 0, 0, 0.5]` and a training loss below `0.01` after 80 steps.
-4. Submit the CPU job in notebook 04. Confirm both `Succeed` and a readable result. Practice checking and cancelling a queued job.
+3. Run the four local main examples (01, 03, 07, 18), each in a new kernel. Run their **Take it home** snippets independently, outside the workshop helper context. Check Bell probabilities, finite gradients, loss convergence, held-out predictions and simulator agreement.
+4. Submit the CPU job in notebook 04. Confirm completion and a readable result. Restore its receipt after a kernel restart, and verify that rerunning does not create a second job. Cancellation belongs in the optional recovery demonstration.
 5. If you will teach GPU submission, complete a new GPU job using the event image and confirm that its result reports CUDA.
 6. Submit the 1024-shot task in notebook 05. Save its task ID and counts. Select a currently available backend rather than assuming a past mapping still works.
 7. Load that result in notebook 06. Check its source label, task ID, and total count.
 8. Repeat with the expected number of simultaneous users, or in the groups you plan to use on the day.
-9. Run the local labs 07–12, 14–15, and 17–18; check their numerical assertions and charts. Lab 12 can be completed without hardware compilation.
-10. Rehearse lab 13 with a newly trained parameter and a real hardware result, and lab 16 with its two-job CPU sweep. Confirm the appropriate submission switches are initially off.
+9. Rehearse only the reference labs you will actually teach; do not turn their catalog into a completion checklist. Lab 12 can be completed without hardware compilation.
+10. If selected, rehearse reference lab 13 with a newly trained parameter and a real hardware result, and lab 16 with its two-job CPU sweep. Source templates keep submission disabled until the participant explicitly enables it; a live rehearsal must enable it and record real task IDs.
 11. Check that unwanted jobs have stopped and that participants know how to close their environments.
 
 Record what passed and what still needs attention. Local notebook checks do not replace this rehearsal.

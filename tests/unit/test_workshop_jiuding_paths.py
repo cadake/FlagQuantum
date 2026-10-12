@@ -207,6 +207,5 @@ def test_notebook_blocks_template_and_prepares_personal_results(
     scope = {}
     exec(locator, scope)
 
-    assert scope["lesson"].outputs.is_relative_to(directory)
-    assert scope["lesson"].receipt.is_relative_to(directory)
-    assert not scope["lesson"].receipt.exists()
+    assert scope["OUTPUTS"].is_relative_to(directory)
+    assert not list(scope["OUTPUTS"].glob("*.receipt.json"))

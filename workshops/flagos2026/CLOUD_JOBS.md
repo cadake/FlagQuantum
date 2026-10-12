@@ -1,12 +1,12 @@
 # Cloud job field notes
 
-Notebooks 04 and 05 teach one circuit workflow each. Their workshop-only
-`lesson.submit_once()` shortcut calls the public `fq.submit()` API and keeps
-credential-free receipts automatically. It restores the same experiment on a
-rerun, refuses changed circuit/configuration under the same name, and blocks an
-uncertain submission rather than retrying a POST. `lesson.collect()` waits for
-30 seconds of polling; pending work remains live. Network calls have their own
-bounded timeouts. Errors are not replaced by local simulation results.
+Notebooks 04 and 05 teach the standard `fq.submit()` → `job.status()` →
+`job.wait()` / `job.result()` workflow. `job.save()` and `fq.restore_job()` let
+you continue after a kernel restart. There is no workshop-specific execution API.
+Folded setup cells reserve a submission record before the POST, reject changed
+experiments under the same receipt, and restore recorded tasks instead of
+resubmitting. Waiting is bounded to 30 seconds of polling; pending work remains
+live. Network calls have their own timeouts. No local result hides a remote error.
 
 ## The public API outside the workshop
 
@@ -84,7 +84,7 @@ receipt = client.submit(
 )
 ```
 
-Unlike the circuit lesson shortcut, each deliberate invocation of this script
+Unlike receipt restoration, each deliberate invocation of this script
 submission creates a separate staged job. Reuse `receipt` with `client.status()`
 and `client.result()` to inspect that job, not another submission invocation.
 
@@ -95,7 +95,7 @@ and `client.result()` to inspect that job, not another submission invocation.
 - Task ID printed but no receipt: inspect that ID on the platform and reconcile
   the interrupted save. Keep the reserved result file; do not delete it to retry.
 - Failed/cancelled: inspect provider logs. There is no automatic retry.
-- Different experiment: use a new lesson name and retain previous records.
+- Different experiment: use new receipt and submission-record filenames and retain previous records.
 
 Personal folder names prevent accidental collisions; security isolation still
 requires platform ACLs and individually scoped credentials. A directory name
