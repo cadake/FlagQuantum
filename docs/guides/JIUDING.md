@@ -539,8 +539,10 @@ GPU-side probability and Pauli-expectation reduction was validated with the
 Native `fq.submit(..., image="registry/project/runtime:tag")` resolves an exact
 image across the authenticated PRIVATE, PROJSET and PUBLIC catalogs. It submits
 with the resolved image region, without changing image visibility. Prefer the
-full registry address; a short name and tag must be unique across these catalogs.
-Ambiguous images and catalog authorization errors stop before job creation.
+full registry address; a short name and tag must resolve to one executable image
+address across these catalogs. Different catalog IDs for the same address are
+aliases, not distinct images; PROJSET is preferred when that shared alias exists.
+Different-address ambiguity and catalog authorization errors stop before job creation.
 
 For shared-script submission with `JiudingClient.submit`, use
 `image_region="PROJSET"` for a project-set shared image. PUBLIC and PRIVATE
