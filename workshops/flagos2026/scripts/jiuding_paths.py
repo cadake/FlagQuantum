@@ -1,5 +1,7 @@
 """Personal workshop storage for the experimental Jiuding client."""
 
+from __future__ import annotations
+
 import errno
 import fcntl
 import os
@@ -7,30 +9,19 @@ import re
 import shutil
 import tempfile
 from pathlib import Path
-from typing import Any, Protocol
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from flagquantum.remote.compute.jiuding import JiudingClient
 
 
-class JiudingSession(Protocol):
-    """Existing experimental transport; credentials stay inside the client."""
-
-    def _auth(self) -> dict[str, str]: ...
-
-    def _request(
-        self,
-        path: str,
-        body: dict[str, Any] | None,
-        headers: dict[str, str],
-        *,
-        method: str = "POST",
-    ) -> dict[str, Any]: ...
-
-    def workspace(self) -> dict[str, Any]: ...
-
-
-def _mounts(storage_info: object, mountinfo: Path) -> set[Path]:
+def _mounts(
+    storage_info: object, mountinfo: Path, defaults: dict[int, tuple[str, ...]]
+) -> set[Path]:
     if not isinstance(storage_info, list) or not mountinfo.is_file():
         raise RuntimeError("Jiuding personal storage requires configured Linux mounts.")
     mounted: set[Path] = set()
+    roots: dict[Path, tuple[str, ...]] = {}
     for line in mountinfo.read_text(encoding="utf-8").splitlines():
         fields = line.split()
         if len(fields) >= 6:
@@ -41,11 +32,12 @@ def _mounts(storage_info: object, mountinfo: Path) -> set[Path]:
                     )
                 )
             )
+            roots[Path(fields[4])] = Path(fields[3]).parts
     candidates: set[Path] = set()
     for storage in storage_info:
         if not isinstance(storage, dict):
             continue
-        for key in ("mountPath", "mountPoint", "path"):
+        for key in ("mountPointPath", "mountPath", "mountPoint", "path"):
             value = storage.get(key)
             if not isinstance(value, str) or not value.startswith("/"):
                 continue
@@ -57,11 +49,24 @@ def _mounts(storage_info: object, mountinfo: Path) -> set[Path]:
                 and path.resolve() == path
             ):
                 candidates.add(path)
+        # Empty paths denote platform defaults. Bind-root identity, not just
+        # /home's existence, must match the authenticated project and account.
+        kind = storage.get("directoryType")
+        suffix = defaults.get(kind) if type(kind) is int else None
+        if storage.get("mountPointPath") == "" and suffix:
+            candidates.update(
+                path
+                for path, root in roots.items()
+                if root[-len(suffix) :] == suffix
+                and path != Path("/")
+                and path.is_dir()
+                and path.resolve() == path
+            )
     return candidates
 
 
 def personal_directory(
-    client: JiudingSession,
+    client: JiudingClient,
     *,
     mountinfo: Path = Path("/proc/self/mountinfo"),
     home_root: Path = Path("/home"),
@@ -85,7 +90,14 @@ def personal_directory(
         )
     uid = str(value)
     workspace = client.workspace()
-    mounts = _mounts(workspace.get("storageInfo"), mountinfo)
+    project_ids = (workspace.get("projsetId"), workspace.get("projId"))
+    defaults = {}
+    if all(
+        isinstance(value, str) and re.fullmatch(r"[A-Za-z0-9_-]+", value)
+        for value in project_ids
+    ):
+        defaults = {2: (*project_ids, uid), 4: (*project_ids, "PUBLIC")}
+    mounts = _mounts(workspace.get("storageInfo"), mountinfo, defaults)
     homes = sorted(path for path in mounts if path.parent == home_root)
     # A differently owned development environment is not the caller's home.
     personal = homes if str(workspace.get("creatorId")) == uid else []
