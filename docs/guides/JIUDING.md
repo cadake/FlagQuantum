@@ -533,3 +533,18 @@ see [the root-entry evidence](../development/evidence/jiuding_root_run_20260909.
 GPU-side probability and Pauli-expectation reduction was validated with the
 `v0.2.0-36ee8a65ae509a0df0d25318015a6433194c7b53-cu128-a100` image. See
 [the remote-measurement evidence](../development/evidence/jiuding_remote_measurements_20260909.json).
+
+## Project-set shared images
+
+Native `fq.submit(..., image="registry/project/runtime:tag")` resolves an exact
+image across the authenticated PRIVATE, PROJSET and PUBLIC catalogs. It submits
+with the resolved image region, without changing image visibility. Prefer the
+full registry address; a short name and tag must resolve to one executable image
+address across these catalogs. Different catalog IDs for the same address are
+aliases, not distinct images; PROJSET is preferred when that shared alias exists.
+Different-address ambiguity and catalog authorization errors stop before job creation.
+
+For shared-script submission with `JiudingClient.submit`, use
+`image_region="PROJSET"` for a project-set shared image. PUBLIC and PRIVATE
+remain supported with their existing defaults. Receipt and duplicate-submission
+protection are unchanged.

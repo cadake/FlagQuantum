@@ -85,25 +85,27 @@ default to external storage unless a release or regression gate requires them.
 
 ## Size budgets
 
-`python tools/check_repository_hygiene.py --report` prints the measurements used
-by the repository gate. The checked-in budgets deliberately sit just above the
-current tree:
+`python tools/check_repository_hygiene.py --report` prints tracked-tree metrics.
+Generated artifacts have hard limits; normal source, test and documentation
+growth is reported for review without failing CI:
 
-| Scope | Budget |
-| --- | ---: |
-| Any tracked file | 1,800,000 bytes |
-| Entire tracked tree | 61,900,000 bytes |
-| Entire tracked tree | 3,010 files |
-| `benchmarks/results/` | 23,700,000 bytes |
-| `benchmarks/results/` | 285 files |
-| `docs/development/` | 200 files |
+| Scope | Reference or limit | Enforcement |
+| --- | ---: | --- |
+| Any tracked file | 1,800,000 bytes | Hard |
+| Entire tracked tree | 61,900,000 bytes | Advisory |
+| Entire tracked tree | 3,010 files | Advisory |
+| `benchmarks/results/` | 23,700,000 bytes | Hard |
+| `benchmarks/results/` | 285 files | Hard |
+| `docs/development/` | 200 files | Advisory |
 
-These values are ceilings, not allocations. A change that needs more room must
-replace or archive existing material instead of raising a limit. Whenever a
-cleanup reduces one of the measurements materially, the same change lowers its
-corresponding budget so the removed volume cannot silently return. The budgets
-are guardrails against accidental growth, not quotas or instructions to remove
-useful, current evidence.
+Advisories retain visibility of growth without requiring feature authors to
+delete useful code or tests. Reviewers can update reference measurements after
+reviewing growth; they are not allocations. Artifact budgets remain ratchets:
+archive obsolete generated evidence rather than expanding those limits. Cache,
+model/data artifacts, oversized files, layout and evidence sanitization remain
+blocking checks. Special audits can opt into strict general ceilings using
+`--max-total-bytes`, `--max-tracked-files` or `--max-development-doc-files`;
+ordinary CI does not supply these overrides.
 
 ### Phase 2 closeout baseline
 

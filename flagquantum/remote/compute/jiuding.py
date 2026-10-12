@@ -884,12 +884,14 @@ class JiudingClient(_ProgramSubmissionMixin):
         self, image: str, image_region: str = "PUBLIC"
     ) -> dict[str, Any]:
         """Resolve one exact image through Jiuding's image catalog."""
-        if image_region not in ("PUBLIC", "PRIVATE"):
-            raise ValueError("image_region must be PUBLIC or PRIVATE")
+        from ._jiuding_images import resolve_catalog_image
+
+        return resolve_catalog_image(image, image_region, self._catalog_matches)
+
+    def _catalog_matches(self, image: str, image_region: str) -> list[dict[str, Any]]:
+        """Find exact accessible images without changing their sharing scope."""
         leaf = image.rsplit("/", 1)[-1]
-        name, separator, tag = leaf.partition(":")
-        if not separator or not name or not tag:
-            raise ValueError("Use an exact image name and tag, such as name:v1")
+        name, _, tag = leaf.partition(":")
         result = self._request(
             "/api/v1/images/select",
             {
@@ -904,22 +906,19 @@ class JiudingClient(_ProgramSubmissionMixin):
         items = result.get("items")
         if not isinstance(items, list):
             raise RuntimeError("Jiuding image catalog response missing items")
-        matches = {
-            item["id"]: item
+        return [
+            item
             for item in items
             if isinstance(item, dict)
             and item.get("id")
             and item.get("status") == 10
             and item.get("clusterId") == self.workspace()["clusterId"]
             and (
-                f"{item.get('name')}:{item.get('tag')}" in (image, leaf)
+                ("/" not in image and f"{item.get('name')}:{item.get('tag')}" == image)
                 or item.get("baseUrl") == image
                 or item.get("registryUrl") == image
             )
-        }
-        if len(matches) != 1:
-            raise ValueError("Image was not uniquely resolved in the Jiuding catalog")
-        return next(iter(matches.values()))
+        ]
 
     def submit(
         self,
@@ -957,8 +956,8 @@ class JiudingClient(_ProgramSubmissionMixin):
         w = self.workspace()
         if w["queueStatus"] != "QUEUE_STATUS_ACTIVE":
             raise RuntimeError("Workspace queue is not active")
-        if image_region not in ("PUBLIC", "PRIVATE"):
-            raise ValueError("image_region must be PUBLIC or PRIVATE")
+        if image_region not in ("PUBLIC", "PRIVATE", "PROJSET"):
+            raise ValueError("image_region must be PUBLIC, PRIVATE or PROJSET")
         catalog_image = (
             self._catalog_image(image, image_region)
             if ":" in image and "/" not in image
@@ -975,7 +974,7 @@ class JiudingClient(_ProgramSubmissionMixin):
         )
         if catalog_image:
             executable_image = catalog_image.get(
-                "registryUrl" if image_region == "PRIVATE" else "baseUrl"
+                "baseUrl" if image_region == "PUBLIC" else "registryUrl"
             )
             if not executable_image:
                 raise RuntimeError(
@@ -996,7 +995,7 @@ class JiudingClient(_ProgramSubmissionMixin):
         else:
             catalog_image = self._catalog_image(image, image_region)
             executable_image = catalog_image.get(
-                "registryUrl" if image_region == "PRIVATE" else "baseUrl"
+                "baseUrl" if image_region == "PUBLIC" else "registryUrl"
             )
             if not executable_image:
                 raise RuntimeError(

@@ -14,6 +14,7 @@ REMOTE_SWITCHES = {
     "check_job",
     "cancel_job",
     "submit_to_hardware",
+    "submit_to_cloud",
     "submit_trained_circuit",
     "submit_sweep",
     "compile_for_hardware",
@@ -35,9 +36,16 @@ def main():
     parser.add_argument(
         "--notebook", help="One notebook filename; defaults to all labs"
     )
+    parser.add_argument(
+        "--include-references",
+        action="store_true",
+        help="Also validate optional notebooks in reference_notebooks/",
+    )
     args = parser.parse_args()
     workshop = Path(__file__).resolve().parents[1]
-    paths = sorted((workshop / "notebooks").rglob("*.ipynb"), key=lambda p: p.name)
+    paths = sorted((workshop / "notebooks").glob("*.ipynb"))
+    if args.include_references:
+        paths += sorted((workshop / "reference_notebooks").rglob("*.ipynb"))
     if not paths:
         parser.error("No notebooks found")
     if args.notebook:
