@@ -47,14 +47,14 @@ def test_auto_catalog_finds_only_project_shared_image(client):
         "registryUrl": "internal/team/runtime:v1",
     }
     client._request = Mock(
-        side_effect=[{"items": []}, {"items": [item]}, {"items": []}]
+        side_effect=[{"items": [item]}, {"items": []}, {"items": []}]
     )
     resolved = client._catalog_image("runtime:v1", "AUTO")
     assert resolved["imageRegion"] == "PROJSET"
     assert resolved["registryUrl"] == item["registryUrl"]
     assert [call.args[1]["repoTypes"] for call in client._request.call_args_list] == [
-        "PRIVATE",
         "PROJSET",
+        "PRIVATE",
         "PUBLIC",
     ]
 
@@ -69,6 +69,36 @@ def test_auto_catalog_rejects_cross_region_ambiguity(client):
     }
     client._request = Mock(
         side_effect=[{"items": [item]}, {"items": [item]}, {"items": []}]
+    )
+    with pytest.raises(ValueError, match="not uniquely resolved"):
+        client._catalog_image("runtime:v1", "AUTO")
+
+
+def test_auto_catalog_deduplicates_shared_and_private_aliases(client):
+    item = {
+        "id": "shared-id",
+        "name": "runtime",
+        "tag": "v1",
+        "status": 10,
+        "clusterId": client.workspace()["clusterId"],
+        "registryUrl": "internal/team/runtime:v1",
+    }
+    client._request = Mock(
+        side_effect=[
+            {"items": [item]},
+            {"items": [{**item, "id": "private-id"}]},
+            {"items": []},
+        ]
+    )
+    resolved = client._catalog_image("runtime:v1", "AUTO")
+    assert resolved["imageRegion"] == "PROJSET"
+    assert resolved["id"] == "shared-id"
+    client._request = Mock(
+        side_effect=[
+            {"items": [item]},
+            {"items": [{**item, "registryUrl": "internal/other/runtime:v1"}]},
+            {"items": []},
+        ]
     )
     with pytest.raises(ValueError, match="not uniquely resolved"):
         client._catalog_image("runtime:v1", "AUTO")

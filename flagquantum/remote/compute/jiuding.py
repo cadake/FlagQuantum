@@ -892,9 +892,13 @@ class JiudingClient(_ProgramSubmissionMixin):
             raise ValueError("Use an exact image name and tag, such as name:v1")
         if image_region == "AUTO":
             matches = {}
-            for region in ("PRIVATE", "PROJSET", "PUBLIC"):
+            for region in ("PROJSET", "PRIVATE", "PUBLIC"):
                 for item in self._catalog_matches(image, region):
-                    matches[(region, item["id"])] = {**item, "imageRegion": region}
+                    executable = item.get(
+                        "baseUrl" if region == "PUBLIC" else "registryUrl"
+                    )
+                    key = executable or (region, item["id"])
+                    matches.setdefault(key, {**item, "imageRegion": region})
         else:
             matches = {
                 item["id"]: item for item in self._catalog_matches(image, image_region)
