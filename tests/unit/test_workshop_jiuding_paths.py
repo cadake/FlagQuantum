@@ -142,6 +142,8 @@ def test_two_users_preserve_notebooks_outputs_and_receipts(
     template = tmp_path / "template"
     (template / "notebooks").mkdir(parents=True)
     (template / "notebooks/lab.ipynb").write_text("template")
+    (template / "notebooks_cn").mkdir()
+    (template / "notebooks_cn/lab.ipynb").write_text("localized template")
     (template / "outputs").mkdir()
     (template / "outputs/old.txt").write_text("private")
     (template / ".env").write_text("secret")
@@ -151,6 +153,9 @@ def test_two_users_preserve_notebooks_outputs_and_receipts(
         assert not (workshop / ".env").exists() and not (workshop / "outputs").exists()
         notebook = workshop / "notebooks/lab.ipynb"
         notebook.write_text(uid)
+        localized = workshop / "notebooks_cn/lab.ipynb"
+        assert localized.read_text() == "localized template"
+        localized.write_text(f"{uid} localized edits")
         (workshop / "outputs").mkdir()
         pointer = workshop / "outputs/latest.txt"
         script, receipt = paths.stage_job(uid, directory)
@@ -158,6 +163,7 @@ def test_two_users_preserve_notebooks_outputs_and_receipts(
         pointer.write_text(str(receipt))
         paths.prepare_workshop(template, directory)
         assert notebook.read_text() == uid and script.read_text() == uid
+        assert localized.read_text() == f"{uid} localized edits"
         assert Path(pointer.read_text()).read_text() == uid
         assert script.parent.stat().st_mode & 0o777 == 0o700
         assert paths.stage_job("another", directory)[0].parent != script.parent
