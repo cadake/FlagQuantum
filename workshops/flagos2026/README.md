@@ -62,6 +62,13 @@ Validation records must state source/version, kernel, hardware, live task IDs,
 retries and limitations. A local preview, a mocked provider test and a real
 cloud submission are different evidence. See [Validation](VALIDATION.md).
 
+After installing [the teaching tools](environment/requirements.txt), verify inline
+plot rendering with `python scripts/verify_inline_plots.py --kernel python3` from
+this workshop directory. This starts bounded Jupyter probes for the four plotting
+examples, checks for PNG output even when the environment defaults to Agg, and
+never submits a cloud task or modifies the source notebooks. Ordinary core unit
+tests check the plotting setup without depending on Jupyter packages.
+
 ## Reference library, not required coursework
 
 The remaining notebooks are retained for deeper questions; they are not extra

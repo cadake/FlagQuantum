@@ -1,7 +1,8 @@
-"""Check that showcase plotting emits an inline image, even with an Agg default."""
+"""Keep the notebook plotting setup contract in the dependency-light unit lane."""
 
 from __future__ import annotations
 
+import importlib.util
 import json
 from pathlib import Path
 
@@ -9,18 +10,17 @@ import pytest
 
 pytestmark = pytest.mark.unit
 NOTEBOOKS = Path(__file__).resolve().parents[2] / "workshops/flagos2026/notebooks"
+SCRIPT = NOTEBOOKS.parent / "scripts/verify_inline_plots.py"
+SPEC = importlib.util.spec_from_file_location("verify_inline_plots", SCRIPT)
+assert SPEC is not None and SPEC.loader is not None
+VERIFIER = importlib.util.module_from_spec(SPEC)
+SPEC.loader.exec_module(VERIFIER)
 
 
 @pytest.mark.parametrize(
     "path", sorted(NOTEBOOKS.glob("0[1-4]_*.ipynb")), ids=lambda p: p.stem
 )
-def test_plot_initialization_emits_inline_png(
-    path: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    nbformat = pytest.importorskip("nbformat")
-    nbclient = pytest.importorskip("nbclient")
-    pytest.importorskip("matplotlib")
-    pytest.importorskip("ipykernel")
+def test_plot_initialization_selects_inline_before_pyplot(path: Path) -> None:
     notebook = json.loads(path.read_text(encoding="utf-8"))
     cells = [
         "".join(cell["source"])
@@ -34,24 +34,26 @@ def test_plot_initialization_emits_inline_png(
         "import matplotlib.pyplot as plt"
     )
     assert all("plt.show()" in cell for cell in cells if "plt.subplots(" in cell)
-    monkeypatch.setenv("MPLBACKEND", "Agg")
     plotting_setup = "\n".join(
         line
         for line in initialization.splitlines()
         if line in {"%matplotlib inline", "import matplotlib.pyplot as plt"}
     )
-    probe = nbformat.v4.new_notebook(
-        cells=[
-            nbformat.v4.new_code_cell(plotting_setup),
-            nbformat.v4.new_code_cell("plt.plot([0, 1], [0, 1])\nplt.show()"),
-        ]
-    )
-    nbclient.NotebookClient(
-        probe,
-        kernel_name="python3",
-        timeout=60,
-        resources={"metadata": {"path": str(tmp_path)}},
-    ).execute()
-    assert any(
-        "image/png" in output.get("data", {}) for output in probe.cells[-1].outputs
-    )
+    assert VERIFIER.plotting_setup(path) == plotting_setup
+
+
+@pytest.mark.parametrize(
+    "source",
+    (
+        "import matplotlib.pyplot as plt",
+        "%matplotlib inline",
+        "import matplotlib.pyplot as plt\n%matplotlib inline",
+    ),
+)
+def test_plot_probe_rejects_missing_or_late_initialization(
+    tmp_path: Path, source: str
+) -> None:
+    path = tmp_path / "lesson.ipynb"
+    path.write_text(json.dumps({"cells": [{"cell_type": "code", "source": source}]}))
+    with pytest.raises(ValueError):
+        VERIFIER.plotting_setup(path)
