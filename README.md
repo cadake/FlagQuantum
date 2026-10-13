@@ -4,7 +4,7 @@
 <p><strong>Quantum computing, built for learning.</strong></p>
 <p>A PyTorch-first framework for differentiable quantum computing and quantum AI.</p>
 
-[Quick start](#train-your-first-quantum-model) · [Documentation](docs/README.md) · [Examples](examples/README.md)
+[Quick start](#install-and-train-your-first-quantum-model) · [Documentation](docs/README.md) · [Examples](examples/README.md)
 
 </div>
 
@@ -25,21 +25,52 @@ distributed paths have correctness evidence.
 See the [validation scope](docs/reference/PUBLICATION_VALIDATION.md) for what has
 been tested and what remains a research goal.
 
-## Train your first quantum model
+## Install and train your first quantum model
 
-Requires Python **3.10–3.12**. Install the released version:
+Requires Python **3.10–3.12**. Choose the command for your computer.
+
+**macOS (Apple Silicon):**
 
 ```console
 python -m pip install flagquantum
 ```
 
-Or install the development version from source (editable, with development tools):
+This release publishes macOS wheels for Apple Silicon only; Intel macOS is
+not a supported binary installation target.
+
+**Linux or Windows, CPU only:**
 
 ```console
-git clone https://github.com/flagos-ai/FlagQuantum.git
-cd FlagQuantum
-python -m pip install -e ".[dev]"
+python -m pip install "torch>=2.13,<2.15" --index-url https://download.pytorch.org/whl/cpu
+python -m pip install flagquantum
 ```
+
+FlagQuantum's compiled extension uses PyTorch's Stable ABI and is tested with
+PyTorch 2.10.x through 2.14.x in compatibility CI. New CPU/CUDA environments
+should use the recommended 2.13.x or 2.14.x runtime above. The first CPU install downloads about 200 MB of
+PyTorch. On a clean GitHub Ubuntu runner it took about 16 seconds; slower
+networks will take longer.
+
+**GPU:** Select a PyTorch 2.13.x or 2.14.x command matching your accelerator from the
+[PyTorch installer](https://pytorch.org/get-started/locally/), then run:
+
+```console
+python -m pip install flagquantum
+```
+
+Installing from source? Follow the short setup in [CONTRIBUTING.md](CONTRIBUTING.md).
+
+**Vendor accelerators (for example, MetaX C550):** Keep the vendor-provided
+PyTorch runtime installed, then use the same `python -m pip install flagquantum`
+command. The core requirement accepts `torch>=2.10,<2.15`, including local version
+labels such as `2.10.0+metax3.8.1.0`; do not install the upstream CPU/CUDA wheel
+over the vendor runtime. The C550 runtime above passed single-card autograd and
+single-node two/eight-card statevector forward, training and checkpoint recovery
+checks. This is not multi-node, capacity or performance certification. Vendor
+drivers, Torch-FL and security patch maintenance remain platform-managed.
+Avoid `--upgrade`/`--upgrade-strategy eager` when retaining a managed runtime.
+The `invertible` extra still requires PyTorch 2.13.x and is not a vendor-runtime
+installation shortcut.
 
 To build a CPU or GPU environment with QSteed and optional JAX, follow the
 [container guide](docker/dev/README.md).
@@ -98,9 +129,10 @@ name when it is invoked from outside that workspace; inside the workspace the
 name is discovered automatically. See
 [repeated low-latency workspace execution](docs/guides/JIUDING.md#repeated-low-latency-workspace-execution).
 
-Direct Quafu submission requires the development version containing this feature.
-With the published 0.2.0 release, use the documented local QSteed compilation path
-instead: pass `compiler="qsteed"` after installing the separate
+Direct Quafu submission is available in the 0.3 release line, including the
+`0.3.0rc3` prerelease. With the older 0.2.0 release, use the documented local
+QSteed compilation path instead: pass `compiler="qsteed"` after installing the
+separate
 [FlagQuantum Compiler QSteed](https://github.com/FlagQuantum/FlagQuantum-Compiler-QSteed)
 plugin, as described in
 [optional local compiler plugin](docs/guides/QUAFU_BACKEND.md#optional-local-compiler-plugin).

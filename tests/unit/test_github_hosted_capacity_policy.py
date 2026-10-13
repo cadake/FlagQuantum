@@ -8,12 +8,12 @@ queues every other repository in the organisation behind it.
 The ceiling is expressed the way GitHub expresses it. A concurrency group
 admits one job at a time, so the number of distinct groups one workflow run
 uses *is* the number of GitHub-hosted runners that run can hold at once.
-`ci.yml` and `pre-commit.yaml` partition their jobs across the eight scoped
+`ci.yml` and `pre-commit.yaml` partition their jobs across the sixteen scoped
 buckets below, and this module holds that partition still. The pull-request or
 branch scope prevents an unrelated older run from serializing a newer run;
 the organisation's 20-runner pool remains the aggregate ceiling.
 
-Five invariants:
+Six invariants:
 
 1. Every GitHub-hosted Ubuntu job joins one of the buckets, and every bucket
    is used: an unused bucket is a ceiling lower than the comment claims, and
@@ -25,12 +25,21 @@ Five invariants:
    `cpucore` bucket carries the matrix value in its name, which means a fourth
    interpreter would be a fourth bucket: the set is spelled out so that is a
    decision about the ceiling and not a side effect of a matrix edit.
-4. Both workflows cancel a superseded run of the same branch, so a push that
-   lands during an earlier run does not queue a second full matrix behind it.
+4. Both workflows cancel a superseded run of the same pull request, and neither
+   cancels a superseded run of `main`. A pull request's older tree is a tree
+   nobody will merge; a revision of `main` has already been merged, so cancelling
+   its run leaves a merge commit that no gate ever read. On 2026-10-08 two merges
+   landed 17 seconds apart and all 23 check runs attached to the first of them
+   were `cancelled` (issue #579), so the distinction is asserted here. Both halves
+   of the expression are asserted, because a group keyed to the commit for every
+   event satisfies "a push is never superseded" while cancelling nothing at all.
 5. `publish-dev-container.yml` caps its own matrix instead of joining a bucket,
    because its legs build container images and serializing them all would cost
-   more than the slots are worth. `cd.yml` is out of scope: it publishes on a
-   release and holds one job, so it cannot occupy more than one runner.
+   more than the slots are worth. It keeps cancelling a superseded run of `main`:
+   a superseded container build is superseded work, and no merge gate reads it.
+6. `cd.yml` runs only for a release, but its cross-platform wheel matrix is
+   still capped at four concurrent builders. Together with the one sdist build,
+   a release can hold at most five runners after validation completes.
 """
 
 from __future__ import annotations
@@ -49,24 +58,40 @@ WORKFLOWS = ROOT / ".github" / "workflows"
 # The per-push workflows: every job in them runs on a GitHub-hosted runner.
 BUCKETED_WORKFLOWS = ("ci.yml", "pre-commit.yaml")
 
-# One concurrency group admits one job, so these eight scoped names are a
-# ceiling of eight concurrent GitHub-hosted runners for one run.
+# One concurrency group admits one job, so these sixteen scoped names are a
+# ceiling of sixteen concurrent GitHub-hosted runners for one run.
+#
+# The scope is the pull request number where there is one and the branch name
+# otherwise, so an unrelated branch's older run cannot serialize a newer one.
+# Two pushes to `main` do share these groups, and deliberately so: a push run of
+# `main` is no longer cancelled when the next push arrives, which means its jobs
+# have to wait somewhere instead. `queue: max` turns that group into a queue
+# rather than a drop, so the later revision is read after the earlier one instead
+# of deleting it.
 RUN_SCOPE = "${{ github.event.pull_request.number || github.ref_name }}"
 BUCKETS = frozenset(
     {
         f"flagquantum-gh-{RUN_SCOPE}-cpucore-3.10",
         f"flagquantum-gh-{RUN_SCOPE}-cpucore-3.11",
         f"flagquantum-gh-{RUN_SCOPE}-cpucore-3.12",
-        f"flagquantum-gh-{RUN_SCOPE}-coverage",
+        f"flagquantum-gh-{RUN_SCOPE}-coverage-0",
+        f"flagquantum-gh-{RUN_SCOPE}-coverage-1",
+        f"flagquantum-gh-{RUN_SCOPE}-coverage-2",
+        f"flagquantum-gh-{RUN_SCOPE}-coverage-3",
+        f"flagquantum-gh-{RUN_SCOPE}-coverage-4",
+        f"flagquantum-gh-{RUN_SCOPE}-coverage-5",
+        f"flagquantum-gh-{RUN_SCOPE}-coverage-6",
+        f"flagquantum-gh-{RUN_SCOPE}-coverage-7",
         f"flagquantum-gh-{RUN_SCOPE}-distributed",
+        f"flagquantum-gh-{RUN_SCOPE}-runtime",
         f"flagquantum-gh-{RUN_SCOPE}-light-a",
         f"flagquantum-gh-{RUN_SCOPE}-light-b",
         f"flagquantum-gh-{RUN_SCOPE}-light-c",
     }
 )
 
-CEILING = 8
-BOUNDED_PYTEST_ADDOPTS = "-n 2 --dist=loadscope --durations=50"
+CEILING = 16
+BOUNDED_PYTEST_ADDOPTS = "-n 2 --dist=worksteal --durations=50"
 GITHUB_HOSTED_UBUNTU_RUNNERS = frozenset({"ubuntu-latest", "ubuntu-22.04"})
 
 _MATRIX_REFERENCE = re.compile(r"\$\{\{\s*matrix\.([A-Za-z0-9_-]+)\s*\}\}")
@@ -144,6 +169,10 @@ def test_the_scan_finds_the_github_hosted_jobs_it_is_meant_to_police() -> None:
     assert {
         "ci.yml:quality",
         "ci.yml:cpu-core",
+        "ci.yml:cpu-core-3-12-tests",
+        "ci.yml:cpu-runtime",
+        "ci.yml:cpu-core-3-12",
+        "ci.yml:coverage-shard",
         "ci.yml:coverage",
         "ci.yml:package",
         "ci.yml:distributed-cpu",
@@ -194,50 +223,120 @@ def test_the_buckets_in_use_are_exactly_the_declared_ceiling() -> None:
     )
 
 
-def test_a_superseded_run_is_cancelled_rather_than_queued() -> None:
+def test_a_superseded_pull_request_run_is_cancelled_and_a_main_push_is_not() -> None:
     offenders: list[str] = []
     for workflow in BUCKETED_WORKFLOWS:
         concurrency = _document(workflow).get("concurrency")
         if not isinstance(concurrency, dict):
             offenders.append(f"{workflow} declares no workflow-level concurrency")
             continue
-        if concurrency.get("cancel-in-progress") is not True:
-            offenders.append(f"{workflow} does not cancel a superseded run")
+        group = str(concurrency.get("group", ""))
+        # The two halves have to be asserted together. A group keyed to
+        # `github.sha` for every event would satisfy "a push is not superseded"
+        # while also giving every push to a branch under review its own group, so
+        # `cancel-in-progress` would never cancel anything and each push would
+        # queue a full matrix behind the last.
+        if "github.sha" not in group:
+            offenders.append(
+                f"{workflow} keys a push run to its branch, so the next push to "
+                "main supersedes a revision that is already merged"
+            )
+        if "github.event_name == 'push'" not in group:
+            offenders.append(
+                f"{workflow} does not keep pull request runs in one group, so a "
+                "push to a branch under review queues a matrix that is never read"
+            )
+        if concurrency.get("cancel-in-progress") != (
+            "${{ github.event_name == 'pull_request' }}"
+        ):
+            offenders.append(
+                f"{workflow} does not scope cancellation to the pull request"
+            )
     assert not offenders, (
-        "a push that lands during an earlier run must cancel that run, not "
-        "queue a second full matrix behind it:\n" + "\n".join(offenders)
+        "a push to a branch under review must cancel that branch's superseded "
+        "run, and a push to `main` must not cancel the run of a revision that is "
+        "already merged, because a cancelled merge-commit reading is "
+        "indistinguishable from a passing one:\n" + "\n".join(offenders)
     )
 
 
-def test_cpu_pytest_tiers_use_two_bounded_workers() -> None:
-    tier_steps = [
-        step
-        for step in _steps("ci.yml", "cpu-core")
-        if "ci_tier.py pr-" in str(step.get("run", ""))
-    ]
-    assert len(tier_steps) == 2
+def test_cpu_pytest_tiers_use_two_bounded_work_stealing_workers() -> None:
+    tier_steps = []
+    for job in ("cpu-core", "cpu-core-3-12-tests", "cpu-runtime"):
+        tier_steps.extend(
+            step
+            for step in _steps("ci.yml", job)
+            if "pytest -m smoke" in str(step.get("run", ""))
+            or "ci_tier.py pr-" in str(step.get("run", ""))
+        )
+    assert len(tier_steps) == 4
     for step in tier_steps:
         env = step.get("env")
         assert isinstance(env, dict)
         assert env.get("PYTEST_ADDOPTS") == BOUNDED_PYTEST_ADDOPTS
 
 
+def test_pull_requests_use_compatibility_smoke_on_older_python() -> None:
+    document = _document("ci.yml")
+    jobs = document.get("jobs")
+    assert isinstance(jobs, dict)
+    core = jobs["cpu-core"]
+    assert isinstance(core, dict)
+    assert core["strategy"]["matrix"] == {"python-version": ["3.10", "3.11"]}
+
+    commands = {
+        str(step.get("if", "")): str(step.get("run", ""))
+        for step in _steps("ci.yml", "cpu-core")
+        if "pytest -m smoke" in str(step.get("run", ""))
+        or "ci_tier.py pr-default" in str(step.get("run", ""))
+    }
+    assert commands == {
+        "github.event_name == 'pull_request'": "python -m pytest -m smoke -q",
+        "github.event_name != 'pull_request'": "python tools/ci_tier.py pr-default",
+    }
+
+
+def test_python_312_required_check_aggregates_parallel_suites() -> None:
+    document = _document("ci.yml")
+    jobs = document.get("jobs")
+    assert isinstance(jobs, dict)
+    final = jobs["cpu-core-3-12"]
+    assert isinstance(final, dict)
+    assert final.get("name") == "cpu-core (3.12)"
+    assert set(final.get("needs", ())) == {"cpu-core-3-12-tests", "cpu-runtime"}
+    command = "\n".join(
+        str(step.get("run", "")) for step in _steps("ci.yml", "cpu-core-3-12")
+    )
+    assert "needs.cpu-core-3-12-tests.result" in command
+    assert "needs.cpu-runtime.result" in command
+
+
 def test_expensive_cpu_runtime_proofs_run_once_on_the_newest_python() -> None:
     expensive_steps = [
         step
-        for step in _steps("ci.yml", "cpu-core")
+        for step in _steps("ci.yml", "cpu-runtime")
         if "ci_tier.py pr-runtime" in str(step.get("run", ""))
         or "torchrun" in str(step.get("run", ""))
     ]
     assert len(expensive_steps) == 3
-    for step in expensive_steps:
-        assert step.get("if") == "matrix.python-version == '3.12'"
+
+    document = _document("ci.yml")
+    jobs = document.get("jobs")
+    assert isinstance(jobs, dict)
+    runtime = jobs["cpu-runtime"]
+    assert isinstance(runtime, dict)
+    setup = next(
+        step
+        for step in runtime["steps"]
+        if isinstance(step, dict) and step.get("uses") == "actions/setup-python@v5"
+    )
+    assert setup["with"]["python-version"] == "3.12"
 
 
 def test_launched_distributed_steps_never_inherit_xdist_workers() -> None:
     launched = [
         step
-        for step in _steps("ci.yml", "cpu-core")
+        for step in _steps("ci.yml", "cpu-runtime")
         if "torchrun" in str(step.get("run", ""))
     ]
     assert launched
@@ -247,23 +346,29 @@ def test_launched_distributed_steps_never_inherit_xdist_workers() -> None:
         assert not isinstance(env, dict) or "PYTEST_ADDOPTS" not in env
 
 
-def test_coverage_uses_the_same_bounded_worker_policy() -> None:
+def test_coverage_uses_the_same_bounded_work_stealing_policy() -> None:
     steps = [
         step
-        for step in _steps("ci.yml", "coverage")
+        for step in _steps("ci.yml", "coverage-shard")
         if "python -m pytest" in str(step.get("run", ""))
     ]
     assert len(steps) == 2
     for step in steps:
         command = str(step.get("run", ""))
-        for token in ("-n 2", "--dist=loadscope", "--durations=50"):
+        for token in ("-n 2", "--dist=worksteal", "--durations=50"):
+            assert token in command
+        for token in (
+            "-p tools.pytest_shard",
+            "--fq-shard-count 8",
+            "--fq-shard-index ${{ matrix.shard }}",
+        ):
             assert token in command
 
 
 def test_pull_request_coverage_deduplicates_full_slow_conformance() -> None:
     steps = {
         str(step.get("if", "")): str(step.get("run", ""))
-        for step in _steps("ci.yml", "coverage")
+        for step in _steps("ci.yml", "coverage-shard")
         if "python -m pytest" in str(step.get("run", ""))
     }
     assert set(steps) == {
@@ -272,6 +377,24 @@ def test_pull_request_coverage_deduplicates_full_slow_conformance() -> None:
     }
     assert "and not slow" in steps["github.event_name == 'pull_request'"]
     assert "and not slow" not in steps["github.event_name != 'pull_request'"]
+
+
+def test_coverage_shards_are_combined_before_the_policy_is_enforced() -> None:
+    shard = _github_hosted_jobs("ci.yml")["coverage-shard"]
+    strategy = shard.get("strategy")
+    assert isinstance(strategy, dict)
+    assert strategy.get("matrix") == {"shard": list(range(8))}
+
+    final = _github_hosted_jobs("ci.yml")["coverage"]
+    assert final.get("needs") == "coverage-shard"
+    commands = "\n".join(
+        str(step.get("run", "")) for step in _steps("ci.yml", "coverage")
+    )
+    assert "needs.coverage-shard.result" in commands
+    assert "coverage combine coverage-data" in commands
+    assert commands.index("coverage combine coverage-data") < commands.index(
+        "tools/check_coverage.py"
+    )
 
 
 def test_each_optional_compatibility_matrix_reuses_one_runner() -> None:
@@ -317,3 +440,12 @@ def test_the_container_matrix_does_not_land_all_at_once() -> None:
             "the container matrix is not capped, so one push to main holds a "
             "runner per variant"
         )
+
+
+def test_the_release_matrix_leaves_capacity_for_other_repositories() -> None:
+    jobs = _document("cd.yml")["jobs"]
+    wheel_strategy = jobs["build-wheels"]["strategy"]
+    wheel_parallelism = wheel_strategy["max-parallel"]
+
+    assert wheel_parallelism == 4
+    assert wheel_parallelism + 1 <= 5  # one concurrent sdist build

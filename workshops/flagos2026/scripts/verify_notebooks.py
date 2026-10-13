@@ -14,11 +14,20 @@ REMOTE_SWITCHES = {
     "check_job",
     "cancel_job",
     "submit_to_hardware",
+    "submit_to_cloud",
     "submit_trained_circuit",
     "submit_sweep",
     "compile_for_hardware",
     "collect",
 }
+SENSITIVE_NAMES = {
+    "QUAFU_API_KEY",
+    "QUAFU_API_TOKEN",
+    "JIUDING_AK",
+    "JIUDING_SK",
+    "QBOSON_SDK_CODE",
+}
+BANNED_CODE = ("export QUAFU_", "pip install flagquantum")
 
 
 def main():
@@ -27,9 +36,16 @@ def main():
     parser.add_argument(
         "--notebook", help="One notebook filename; defaults to all labs"
     )
+    parser.add_argument(
+        "--include-references",
+        action="store_true",
+        help="Also validate optional notebooks in reference_notebooks/",
+    )
     args = parser.parse_args()
     workshop = Path(__file__).resolve().parents[1]
-    paths = sorted((workshop / "notebooks").rglob("*.ipynb"), key=lambda p: p.name)
+    paths = sorted((workshop / "notebooks").glob("*.ipynb"))
+    if args.include_references:
+        paths += sorted((workshop / "reference_notebooks").rglob("*.ipynb"))
     if not paths:
         parser.error("No notebooks found")
     if args.notebook:
@@ -43,9 +59,24 @@ def main():
         for cell in notebook.cells:
             if cell.cell_type != "code":
                 continue
+            if cell.execution_count is not None or cell.outputs:
+                raise ValueError(f"{path.name}: clear saved execution state")
+            lowered = cell.source.lower()
+            for snippet in BANNED_CODE:
+                if snippet.lower() in lowered:
+                    raise ValueError(f"{path.name}: remove `{snippet}` from code cells")
             for node in ast.walk(ast.parse(cell.source)):
                 if isinstance(node, ast.Assign):
                     for target in node.targets:
+                        if (
+                            isinstance(target, ast.Name)
+                            and target.id in SENSITIVE_NAMES
+                            and isinstance(node.value, ast.Constant)
+                            and node.value.value
+                        ):
+                            raise ValueError(
+                                f"{path.name}: do not assign credentials in a notebook"
+                            )
                         if (
                             isinstance(target, ast.Name)
                             and target.id in REMOTE_SWITCHES

@@ -1,6 +1,7 @@
 # Submit and resume remote jobs
 
-This API requires the development version; it is not in PyPI 0.2.0.
+This API is available in the 0.3 release line, including the `0.3.0rc3`
+prerelease; it is not in PyPI 0.2.0.
 `fq.run()` still waits for a result. Use `fq.submit()` when a Notebook should
 remain available while a remote task is queued or running. Submission waits only
 for preparation and the provider's acknowledgement, not for execution completion.
@@ -107,6 +108,31 @@ job.save("jiuding-job.json")
 print(job.id)
 ```
 
+To run one circuit across multiple accelerators in the selected Jiuding queue,
+set `devices`. The model still comes from `target` (or from the queue when the
+model suffix is omitted):
+
+```python
+job = fq.submit(
+    fq.Circuit(30).h(0).cx(0, 29),
+    target="jiuding:gpu/NVIDIA_A100-SXM4-40GB",
+    devices=4,
+    project="YOUR_PROJECT_SET.YOUR_PROJECT",
+    queue="YOUR_A100_QUEUE",
+    image="YOUR_FLAGQUANTUM_IMAGE",
+    outputs=fq.expectation_ps(z=(0, 29)),
+    credentials=credentials,
+)
+```
+
+`devices=4` means four accelerators are reserved and four distributed ranks are
+started; it is not merely a scheduling hint. Multi-device jobs are currently
+single-node, GPU-only and require a power-of-two device count. The statevector
+evolution is sharded, while the current general result path explicitly gathers
+the state before materializing outputs. Inspect
+`result.runtime["distributed_execution"]` and
+`result.runtime["result_materialization"]` for the two sets of evidence.
+
 A submit-ready entry has this shape:
 
 ```python
@@ -197,6 +223,10 @@ or provisioned by FlagQuantum:
 - `target="jiuding:gpu"` is the FlagQuantum target selector; the chosen Jiuding
   queue determines the concrete GPU model. Use `jiuding:gpu/<model>` only when
   an exact model match is required.
+- `target="jiuding:cpu"` selects CPU execution inside the job. On an
+  accelerator-backed queue, FlagQuantum still preserves the queue's physical
+  accelerator model in the Jiuding scheduling request; runtime device selection
+  and platform placement are independent.
 
 Users must obtain project membership, queue access and the image reference from
 their Jiuding administrator or Jiuding console. One user's values generally do
