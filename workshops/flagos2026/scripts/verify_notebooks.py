@@ -5,6 +5,7 @@ import ast
 from pathlib import Path
 
 import nbformat
+from IPython.core.inputtransformer2 import TransformerManager
 from nbclient import NotebookClient
 
 REMOTE_SWITCHES = {
@@ -65,7 +66,8 @@ def main():
             for snippet in BANNED_CODE:
                 if snippet.lower() in lowered:
                     raise ValueError(f"{path.name}: remove `{snippet}` from code cells")
-            for node in ast.walk(ast.parse(cell.source)):
+            parsed = ast.parse(TransformerManager().transform_cell(cell.source))
+            for node in ast.walk(parsed):
                 if isinstance(node, ast.Assign):
                     for target in node.targets:
                         if (
