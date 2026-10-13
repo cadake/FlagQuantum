@@ -28,6 +28,30 @@ are reference identifiers, not additional course steps.
 
 ## How to use each example
 
+### Choose your teaching language
+
+The English edition remains in `notebooks/`; the Chinese teaching edition lives
+alongside it in `notebooks_cn/`. Both have the same six numbered examples,
+identical executable cells, and identical take-home Python snippets.
+
+| Example | English | Chinese |
+| --- | --- | --- |
+| 01: Bell circuit | [Open](notebooks/01_first_circuit.ipynb) | [Open](notebooks_cn/01_first_circuit.ipynb) |
+| 02: Quantum training | [Open](notebooks/02_quantum_training.ipynb) | [Open](notebooks_cn/02_quantum_training.ipynb) |
+| 03: Hybrid model | [Open](notebooks/03_hybrid_model.ipynb) | [Open](notebooks_cn/03_hybrid_model.ipynb) |
+| 04: Three simulators | [Open](notebooks/04_one_problem_three_simulators.ipynb) | [Open](notebooks_cn/04_one_problem_three_simulators.ipynb) |
+| 05: Jiuding CPU job | [Open](notebooks/05_jiuding_jobs.ipynb) | [Open](notebooks_cn/05_jiuding_jobs.ipynb) |
+| 06: Quafu hardware | [Open](notebooks/06_quafu_hardware.ipynb) | [Open](notebooks_cn/06_quafu_hardware.ipynb) |
+
+Changing language does not reset an experiment: both editions use the same
+personal output directory and matching cloud receipts. This avoids submitting
+the same saved task again just because you switched languages. New personal
+copies include both editions; existing edited copies are never overwritten.
+Setup guides and code output remain English. Existing workshop images need a
+separate template update before the Chinese edition becomes available in them.
+
+### Run an experiment
+
 1. Read the question and predict the answer.
 2. Run the cells in order with Shift+Enter in a fresh kernel.
 3. Inspect the numerical check and figure, not just the absence of an exception.
@@ -61,6 +85,14 @@ cells, with its purpose explained rather than hidden behind a new execution API.
 Validation records must state source/version, kernel, hardware, live task IDs,
 retries and limitations. A local preview, a mocked provider test and a real
 cloud submission are different evidence. See [Validation](VALIDATION.md).
+
+After installing [the teaching tools](environment/requirements.txt), verify inline
+plot rendering with `python scripts/verify_inline_plots.py --kernel python3` from
+this workshop directory. This starts bounded Jupyter probes for the four plotting
+examples in both editions (use `--language en` or `--language cn` for just one),
+checks for PNG output even when the environment defaults to Agg, and
+never submits a cloud task or modifies the source notebooks. Ordinary core unit
+tests check the plotting setup without depending on Jupyter packages.
 
 ## Reference library, not required coursework
 
