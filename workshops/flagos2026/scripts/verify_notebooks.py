@@ -34,6 +34,7 @@ BANNED_CODE = ("export QUAFU_", "pip install flagquantum")
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--kernel", default="flagquantum-workshop")
+    parser.add_argument("--language", choices=("en", "cn", "both"), default="both")
     parser.add_argument(
         "--notebook", help="One notebook filename; defaults to all labs"
     )
@@ -44,7 +45,16 @@ def main():
     )
     args = parser.parse_args()
     workshop = Path(__file__).resolve().parents[1]
-    paths = sorted((workshop / "notebooks").glob("*.ipynb"))
+    directories = {
+        "en": ("notebooks",),
+        "cn": ("notebooks_cn",),
+        "both": ("notebooks", "notebooks_cn"),
+    }[args.language]
+    paths = [
+        path
+        for directory in directories
+        for path in sorted((workshop / directory).glob("*.ipynb"))
+    ]
     if args.include_references:
         paths += sorted((workshop / "reference_notebooks").rglob("*.ipynb"))
     if not paths:
@@ -100,8 +110,10 @@ def main():
             kernel_name=args.kernel,
             resources={"metadata": {"path": str(path.parent)}},
         ).execute()
-        nbformat.write(notebook, output / path.name)
-        print(f"PASS {path.name}", flush=True)
+        destination = output / path.parent.name / path.name
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        nbformat.write(notebook, destination)
+        print(f"PASS {path.parent.name}/{path.name}", flush=True)
 
 
 if __name__ == "__main__":

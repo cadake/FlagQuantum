@@ -59,14 +59,21 @@ def verify_inline_plots(notebooks: Path, kernel: str) -> None:
                 for output in notebook.cells[-1].outputs
             ):
                 raise RuntimeError(f"{path.name}: no inline PNG output")
-            print(f"PASS {path.name}: inline PNG", flush=True)
+            print(f"PASS {path.parent.name}/{path.name}: inline PNG", flush=True)
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--kernel", default="python3")
+    parser.add_argument("--language", choices=("en", "cn", "both"), default="both")
     args = parser.parse_args()
-    verify_inline_plots(Path(__file__).resolve().parents[1] / "notebooks", args.kernel)
+    directories = {
+        "en": ("notebooks",),
+        "cn": ("notebooks_cn",),
+        "both": ("notebooks", "notebooks_cn"),
+    }[args.language]
+    for directory in directories:
+        verify_inline_plots(Path(__file__).resolve().parents[1] / directory, args.kernel)
 
 
 if __name__ == "__main__":
