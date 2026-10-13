@@ -55,7 +55,14 @@ def test_showcase_uses_native_apis_and_copyable_python(relative: str) -> None:
         isinstance(node, ast.Attribute)
         and isinstance(node.value, ast.Name)
         and node.value.id == "lesson"
-        for node in ast.walk(ast.parse(code))
+        for node in ast.walk(
+            ast.parse(
+                code.replace(
+                    "%matplotlib inline",
+                    'get_ipython().run_line_magic("matplotlib", "inline")',
+                )
+            )
+        )
     )
     assert "submit_once(" not in code
     ending = "".join(notebook["cells"][-1]["source"])
