@@ -57,7 +57,13 @@ def test_source_notebooks_are_clean_and_contain_valid_python() -> None:
             if cell["cell_type"] != "code":
                 continue
             source = "".join(cell["source"])
-            ast.parse(source, filename=str(path))
+            ast.parse(
+                source.replace(
+                    "%matplotlib inline",
+                    'get_ipython().run_line_magic("matplotlib", "inline")',
+                ),
+                filename=str(path),
+            )
             assert cell["execution_count"] is None
             assert cell["outputs"] == []
             assert "pip install flagquantum" not in source.lower()
