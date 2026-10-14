@@ -33,13 +33,13 @@ def plotting_setup(path: Path) -> str:
 
 
 def verify_inline_plots(notebooks: Path, kernel: str) -> None:
-    """Launch bounded notebook probes and require rich PNG output for all four labs."""
+    """Launch bounded notebook probes and require rich PNG output for all six labs."""
     import nbformat
     from nbclient import NotebookClient
 
-    paths = sorted(notebooks.glob("0[1-4]_*.ipynb"))
-    if len(paths) != 4:
-        raise ValueError("Expected four plotting showcase notebooks")
+    paths = sorted(notebooks.glob("0[1-6]_*.ipynb"))
+    if len(paths) != 6:
+        raise ValueError("Expected six plotting showcase notebooks")
     with tempfile.TemporaryDirectory(prefix="flagquantum-inline-") as directory:
         for path in paths:
             notebook = nbformat.v4.new_notebook(
