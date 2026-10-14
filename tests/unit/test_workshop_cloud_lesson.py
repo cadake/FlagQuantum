@@ -33,6 +33,10 @@ class Circuit:
     def cx(self, control: int, target: int) -> Circuit:
         return self
 
+    def draw(self, *, format: str, show_all_qubits: bool) -> tuple[None, None]:
+        assert format == "mpl" and show_all_qubits
+        return None, None
+
 
 class FakeJob:
     id = "saved-task"
@@ -108,6 +112,12 @@ def setup(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> SimpleNamespace:
 
     torch.__dict__["testing"] = SimpleNamespace(assert_close=assert_close)
     monkeypatch.setitem(sys.modules, "torch", torch)
+    matplotlib = ModuleType("matplotlib")
+    pyplot = ModuleType("matplotlib.pyplot")
+    pyplot.__dict__["show"] = lambda: None
+    matplotlib.__dict__["pyplot"] = pyplot
+    monkeypatch.setitem(sys.modules, "matplotlib", matplotlib)
+    monkeypatch.setitem(sys.modules, "matplotlib.pyplot", pyplot)
     return SimpleNamespace(job=job, calls=calls, outputs=start.parent / "outputs")
 
 
@@ -124,6 +134,9 @@ def run_cells(filename: str, *, enabled: bool) -> dict[str, Any]:
                 source = source.replace(
                     "submit_to_hardware = False", "submit_to_hardware = True"
                 )
+            # Rendering is checked in real kernels by verify_notebooks.py;
+            # this provider-free harness executes the submission/recovery cells.
+            source = source.replace("%matplotlib inline", "")
             exec(source, scope)
     return scope
 
