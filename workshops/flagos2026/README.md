@@ -3,6 +3,24 @@
 A small collection of complete examples, not an eighteen-stop API tour.
 Learn a task here, then reuse the same FlagQuantum code in your own Python project.
 
+## Choose a learning route
+
+- First circuit: **01**, then **02** when you know basic PyTorch gradients.
+- Hybrid training: **01 → 02 → 03**; familiarity with Linear, Sequential and batches helps.
+- Simulation choices: **01 → 02 → 04**; keep the default mode until you have a reason to compare representations.
+- Remote execution: **01 → 05 → 06**; the training lessons are not prerequisites.
+
+01–04 run on a local CPU without a cloud account. 05 requires Jiuding access,
+a verified job image/project/queue and shared storage. 06 requires Quafu access,
+an available hardware target and shot quota. Follow [Setup](SETUP.md) before
+either remote lesson. The published switches stay off; the event deployment
+explicitly enables real submissions after configuration is verified.
+
+Open the English or Chinese link in the table below. Use a fresh kernel, read
+the learning goal, and run cells in order with Shift+Enter. Each lesson explains
+the expected output and how to rerun safely; an assertion passing is a numerical
+check, not proof that the explanation is clear to a new reader.
+
 ## The main workshop
 
 Start with the circuit example. Choose the next experiment by the question you
@@ -88,7 +106,7 @@ cloud submission are different evidence. See [Validation](VALIDATION.md).
 
 After installing [the teaching tools](environment/requirements.txt), verify inline
 plot rendering with `python scripts/verify_inline_plots.py --kernel python3` from
-this workshop directory. This starts bounded Jupyter probes for the four plotting
+this workshop directory. This starts bounded Jupyter probes for the six plotting
 examples in both editions (use `--language en` or `--language cn` for just one),
 checks for PNG output even when the environment defaults to Agg, and
 never submits a cloud task or modifies the source notebooks. Ordinary core unit
@@ -112,6 +130,13 @@ selection, raw public-API examples and recovery. [Field notes](FIELD_NOTES.md)
 help explain a scientific result; [Challenges](CHALLENGES.md) suggest extensions.
 
 ## Instructor responsibilities
+
+Before teaching, ask someone new to FlagQuantum to follow a route without help.
+After each lesson, ask them to explain what the circuit does, what the printed
+result means, and what rerunning the relevant cell will do. For cloud lessons,
+also ask whether they have submitted, queued, restored or retrieved a task.
+Record the first confusing cell and revise it; do not mark this reader check
+complete on the basis of automated execution or a mock submission test.
 
 Provision the kernel, optional compiler plugin, personal mounts and service
 configuration before teaching. Do not require participants to debug deployment
