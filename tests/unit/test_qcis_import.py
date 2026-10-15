@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import keyword
 import math
 import sys
 
@@ -151,6 +152,14 @@ def test_oversized_integer_operands_keep_domain_diagnostics() -> None:
         "theta[0]",
         "[theta]",
         "True",
+        "False",
+        "None",
+        "_qcis_parameter_0",
+        "(lambda+_qcis_parameter_0)",
+        "lambda.__class__",
+        "lambda(0)",
+        "(lambda:0)",
+        "(theta if lambda else phi)",
         "0x10",
         "1_000",
         "𝒙",
@@ -201,3 +210,36 @@ def test_constant_expressions_are_folded_to_numeric_ir() -> None:
     assert [i.params["theta"] for i in ir.instructions] == pytest.approx(
         [math.pi / 3, 0.43, -math.pi / 3]
     )
+
+
+@pytest.mark.parametrize(
+    "name", [name for name in keyword.kwlist if name not in {"True", "False", "None"}]
+)
+def test_python_keywords_are_qcis_parameter_names(name: str) -> None:
+    from flagquantum.core.parameters import (
+        bind_parameter_value,
+        parameter_names_in_value,
+    )
+
+    converted = import_qcis(f"RZ Q7 {name}\nRXY Q7 ({name}/2) (-{name}+pi)")
+    ir = CircuitIR.from_json(converted.ir.to_json())
+    assert converted.report.lossless
+    assert parameter_names_in_value(tuple(i.params for i in ir.instructions)) == (name,)
+    angles = [
+        bind_parameter_value(i.params["theta"], {name: 0.6}) for i in ir.instructions
+    ]
+    assert angles == pytest.approx([0.6, -0.3, math.pi - 0.6, 0.3])
+
+
+def test_keyword_and_ordinary_names_keep_distinct_bindings() -> None:
+    from flagquantum.core.parameters import (
+        bind_parameter_value,
+        parameter_names_in_value,
+    )
+
+    ir = import_qcis("RZ Q0 (lambda+class+theta+lambda_1+1e-3)").ir
+    angle = ir.instructions[0].params["theta"]
+    assert parameter_names_in_value(angle) == ("class", "lambda", "lambda_1", "theta")
+    assert bind_parameter_value(
+        angle, {"lambda": 0.1, "class": 0.2, "theta": 0.3, "lambda_1": 0.4}
+    ) == pytest.approx(1.001)

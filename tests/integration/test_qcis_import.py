@@ -17,6 +17,25 @@ from flagquantum.ecosystem.qcis import import_qcis
 pytestmark = pytest.mark.integration
 
 
+def test_keyword_angle_executes_asymmetric_measurements_and_gradients() -> None:
+    converted = import_qcis("RY Q7 (lambda/2)\nX Q17\nM Q17 Q7")
+    circuit = fq.Circuit.from_ir(converted.ir)
+    assert circuit.parameter_names == ("lambda",)
+    angle = torch.tensor(0.6, dtype=torch.float64, requires_grad=True)
+    bound = circuit.bind_parameters({"lambda": angle})
+    result = fq.run(bound, outputs=fq.probabilities((1, 0)))
+    expected = torch.tensor(
+        [[0.0, 0.0, math.cos(0.6 / 4) ** 2, math.sin(0.6 / 4) ** 2]],
+        dtype=torch.float64,
+    )
+    torch.testing.assert_close(result.probabilities, expected)
+    result.probabilities[0, 3].backward()
+    assert angle.grad is not None
+    torch.testing.assert_close(
+        angle.grad, torch.tensor(math.sin(0.6 / 2) / 4, dtype=torch.float64)
+    )
+
+
 def _matrix(name: str) -> torch.Tensor:
     identity = torch.eye(2, dtype=torch.complex128)
     pauli = {

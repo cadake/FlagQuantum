@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import ast
+import io
 import math
 import re
+import tokenize
 from typing import TypeAlias
 
 from ...core.parameters import Parameter, ParameterExpression
@@ -12,6 +14,26 @@ from ...core.parameters import Parameter, ParameterExpression
 Angle: TypeAlias = float | Parameter | ParameterExpression
 _DECIMAL = re.compile(r"[+-]?(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)(?:[eE][+-]?[0-9]+)?\Z")
 _NAME = re.compile(r"[A-Za-z][A-Za-z0-9_]*\Z", re.ASCII)
+
+
+def _normalize_names(source: str) -> tuple[str, dict[str, str]]:
+    tokens: list[tuple[int, str]] = []
+    names: dict[str, str] = {}
+    try:
+        for token in tokenize.generate_tokens(io.StringIO(source).readline):
+            text = token.string
+            if token.type == tokenize.NAME:
+                if not _NAME.fullmatch(text) or text in {"True", "False", "None"}:
+                    raise ValueError("invalid parameter name")
+                # QCIS names may be Python keywords: shield them before
+                # AST parsing, then restore the original names in Core parameters.
+                alias = f"_qcis_parameter_{len(names)}"
+                names[alias] = text
+                text = alias
+            tokens.append((token.type, text))
+    except (tokenize.TokenError, IndentationError) as exc:
+        raise ValueError("malformed angle expression") from exc
+    return tokenize.untokenize(tokens), names
 
 
 def parse_angle(source: str) -> Angle:
@@ -25,8 +47,9 @@ def parse_angle(source: str) -> Angle:
         if not math.isfinite(value):
             raise ValueError("the angle must be finite")
         return value
+    normalized, names = _normalize_names(source)
     try:
-        tree = ast.parse(source, mode="eval")
+        tree = ast.parse(normalized, mode="eval")
     except (SyntaxError, ValueError, RecursionError) as exc:
         raise ValueError("malformed angle expression") from exc
     if sum(1 for _ in ast.walk(tree)) > 256:
@@ -37,16 +60,15 @@ def parse_angle(source: str) -> Angle:
             raise ValueError("angle expression exceeds 32 nesting levels")
         value: Angle
         if isinstance(node, ast.Constant):
-            literal = ast.get_source_segment(source, node) or ""
+            literal = ast.get_source_segment(normalized, node) or ""
             if not _DECIMAL.fullmatch(literal):
                 raise ValueError("expected a decimal real number")
             value = float(literal)
         elif isinstance(node, ast.Name):
-            if not _NAME.fullmatch(
-                ast.get_source_segment(source, node) or ""
-            ) or node.id.lower() in {"nan", "inf", "infinity"}:
+            name = names[node.id]
+            if name.lower() in {"nan", "inf", "infinity"}:
                 raise ValueError("invalid parameter name or non-finite angle")
-            value = math.pi if node.id == "pi" else Parameter(node.id)
+            value = math.pi if name == "pi" else Parameter(name)
         elif isinstance(node, ast.UnaryOp) and isinstance(
             node.op, (ast.UAdd, ast.USub)
         ):

@@ -83,6 +83,9 @@ RXY angles. It is not a claim that every QCIS producer accepts these expressions
 - Finite decimal/scientific numbers, `pi`, and case-sensitive parameter names
   matching `[A-Za-z][A-Za-z0-9_]*`. `pi` is reserved; non-finite spellings such as
   `nan`, `inf` and `infinity` are rejected regardless of case.
+  Python keywords such as `lambda` and `class` are valid parameter names,
+  including in expressions like `lambda/2`. Python literals `True`, `False`
+  and `None` remain unsupported.
 - Parentheses, unary `+`/`-`, and binary `+`, `-`, `*`, with ordinary precedence.
   Division is supported only by a nonzero constant expression, such as
   `theta/2` or `theta/(2*pi)`. Symbolic division, powers, calls, attributes,
