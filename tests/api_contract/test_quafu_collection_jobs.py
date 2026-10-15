@@ -6,6 +6,7 @@ import copy
 import json
 from pathlib import Path
 from types import SimpleNamespace
+from typing import Any
 from urllib.error import HTTPError
 from urllib.parse import parse_qs, urlparse
 
@@ -125,6 +126,128 @@ def test_one_job_orders_paged_results_and_restores(
     assert result.runtime["shots_returned"] == [1024, 1024, 1024]
     assert "service_compiler" not in result.provenance
     assert [row["task_index"] for row in result.provenance["deployment"]] == [0, 1, 2]
+    assert len(api.transport.posts) == 1
+
+
+def _run_guide_example(
+    api: SimpleNamespace, tmp_path: Path, changes: dict[str, Any] | None = None
+) -> dict[str, Any]:
+    guide = Path(__file__).resolve().parents[2] / "docs/guides/REMOTE_JOBS.md"
+    section = guide.read_text().split("## Multiple circuits in one Quafu job\n", 1)[1]
+    code = section.split("```python\n", 1)[1].split("```", 1)[0]
+    # Execute the published workflow with test inputs and a fully offline transport.
+    workflow = code[code.index("request = {") :]
+    scope = {
+        "fq": fq,
+        "json": json,
+        "circuits": api.circuits,
+        "target": "quafu:Baihua",
+        "shots": 1024,
+        "receipt": tmp_path / "three-circuits.receipt.json",
+    } | (changes or {})
+    exec(compile(workflow, str(guide), "exec"), scope)
+    return scope
+
+
+def test_guide_rerun_restores_without_another_post(
+    api: SimpleNamespace, tmp_path: Path
+) -> None:
+    first = _run_guide_example(api, tmp_path)
+    receipt_bytes = first["receipt"].read_bytes()
+    restored = _run_guide_example(api, tmp_path)
+    assert first["job"].id == restored["job"].id == "collection-123"
+    assert restored["result"].counts == [{"100": 1024}, {"010": 1024}, {"001": 1024}]
+    assert first["receipt"].read_bytes() == receipt_bytes
+    assert len(api.transport.posts) == 1
+
+
+@pytest.mark.parametrize(
+    "change", ["gate", "angle", "width", "count", "order", "target", "shots"]
+)
+def test_guide_configuration_changes_never_resubmit(
+    api: SimpleNamespace, tmp_path: Path, change: str
+) -> None:
+    _run_guide_example(api, tmp_path)
+    circuits = list(api.circuits)
+    changes: dict[str, Any] = {"circuits": circuits}
+    if change == "gate":
+        circuits[0] = fq.Circuit(3).y(0)
+    elif change == "angle":
+        circuits[0] = fq.Circuit(3).rx(0, theta=0.4)
+    elif change == "width":
+        changes["circuits"] = [fq.Circuit(4).x(i) for i in range(3)]
+    elif change == "count":
+        circuits.pop()
+    elif change == "order":
+        circuits.reverse()
+    elif change == "target":
+        changes["target"] = "quafu:Other"
+    else:
+        changes["shots"] = 2048
+    before = list(api.transport.gets)
+    with pytest.raises(ValueError, match="changed"):
+        _run_guide_example(api, tmp_path, changes)
+    assert api.transport.gets == before and len(api.transport.posts) == 1
+
+
+@pytest.mark.parametrize("change", ["receipt", "missing_request", "request", "target"])
+def test_guide_invalid_saved_files_never_resubmit(
+    api: SimpleNamespace, tmp_path: Path, change: str
+) -> None:
+    scope = _run_guide_example(api, tmp_path)
+    if change == "missing_request":
+        scope["request_path"].unlink()
+    elif change == "request":
+        scope["request_path"].write_text("{broken")
+    elif change == "receipt":
+        scope["receipt"].write_text("{broken")
+    else:
+        raw = json.loads(scope["receipt"].read_text())
+        raw["target"] = "quafu:Other"
+        scope["receipt"].write_text(json.dumps(raw))
+    before = list(api.transport.gets)
+    with pytest.raises((ValueError, FileNotFoundError)):
+        _run_guide_example(api, tmp_path)
+    assert api.transport.gets == before and len(api.transport.posts) == 1
+
+
+def test_guide_restore_failure_is_not_a_submission_fallback(
+    api: SimpleNamespace, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _run_guide_example(api, tmp_path)
+
+    def fail_restore(path: Path) -> None:
+        raise RuntimeError("restore unavailable")
+
+    monkeypatch.setattr(fq, "restore_job", fail_restore)
+    with pytest.raises(RuntimeError, match="restore unavailable"):
+        _run_guide_example(api, tmp_path)
+    assert len(api.transport.posts) == 1
+
+
+def test_guide_lost_response_leaves_a_guard_against_resubmission(
+    api: SimpleNamespace, tmp_path: Path
+) -> None:
+    api.transport.error = TimeoutError("response lost")
+    with pytest.raises(TimeoutError, match="response lost"):
+        _run_guide_example(api, tmp_path)
+    api.transport.error = None
+    with pytest.raises(RuntimeError, match="reconcile with Quafu"):
+        _run_guide_example(api, tmp_path)
+    assert len(api.transport.posts) == 1
+
+
+def test_guide_receipt_save_failure_does_not_allow_another_post(
+    api: SimpleNamespace, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def fail_save(self: jobs.RemoteJob, path: Path) -> None:
+        raise OSError("disk full")
+
+    monkeypatch.setattr(jobs.RemoteJob, "save", fail_save)
+    with pytest.raises(OSError, match="disk full"):
+        _run_guide_example(api, tmp_path)
+    with pytest.raises(RuntimeError, match="reconcile with Quafu"):
+        _run_guide_example(api, tmp_path)
     assert len(api.transport.posts) == 1
 
 

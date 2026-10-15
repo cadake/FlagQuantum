@@ -49,21 +49,47 @@ by `submit()` because they can produce several hardware tasks.
 
 Pass a list rather than calling `submit` in a loop. Each circuit becomes one
 task (#0, #1, #2) under a single parent job and one saved receipt. This example
-requires configured Quafu access and deliberately creates a real hardware job:
+requires configured Quafu access. On its first run it creates a real hardware
+job; later runs validate the saved request and restore that job:
 
 ```python
+import json
+from pathlib import Path
+
 import flagquantum as fq
 
 circuits = [fq.Circuit(3).x(qubit) for qubit in range(3)]
-job = fq.submit(
-    circuits, target="quafu:Baihua", shots=1024, outputs=fq.counts(),
-    name="asymmetric three-circuit check",
-)
-job.save("three-circuits.receipt.json")
-print(job.id)
+target = "quafu:Baihua"
+shots = 1024
+receipt = Path("three-circuits.receipt.json")
 
-# After a restart, restore this file instead of submitting again.
-job = fq.restore_job("three-circuits.receipt.json")
+request = {
+    "circuits": [circuit.to_ir().content_hash for circuit in circuits],
+    "target": target,
+    "shots": shots,
+}
+request_path = receipt.with_suffix(".request.json")
+print("Receipt path:", receipt.resolve())
+if receipt.exists():
+    if json.loads(request_path.read_text(encoding="utf-8")) != request:
+        raise ValueError("Circuits, target or shots changed; refusing to reuse this receipt")
+    job = fq.restore_job(receipt)
+    if job.target != target:
+        raise ValueError("Receipt target differs from this request")
+    print("Restored job:", job.id)
+else:
+    if request_path.exists():
+        raise RuntimeError("Submission may already exist; reconcile with Quafu before retrying")
+    # Reserve this request before POST; an interrupted attempt must not resubmit.
+    with request_path.open("x", encoding="utf-8") as stream:
+        json.dump(request, stream)
+    job = fq.submit(
+        circuits, target=target, shots=shots, outputs=fq.counts(),
+        name="asymmetric three-circuit check",
+    )
+    job.save(receipt)
+    print("Submitted job:", job.id)
+
 result = job.wait(timeout=300)
 for index, counts in enumerate(result.counts):
     print(index, counts)
@@ -73,6 +99,23 @@ For ideal execution the dominant strings would be `100`, `010`, `001`, in
 that order (q0 on the left); hardware can add noise. Counts are already in
 FlagQuantum order, not the portal's classical-register display order.
 `shots=1024` applies to each circuit: this example requests 3072 shots overall.
+Keep the receipt and its `.request.json` sidecar together in your personal,
+persistent directory. This relative filename is resolved against the current
+working directory, printed above; it is not a search of previous cloud jobs.
+After a restart use the same directory or the same absolute receipt path.
+Circuit identities are ordered: changing a gate, angle,
+width, circuit count or circuit order rejects reuse, as do changes to target or
+shots. Restoring, waiting, corrupt/missing files and configuration mismatches
+never trigger an automatic submission fallback.
+
+The sidecar is created exclusively before submission. If a request exists but
+the receipt is missing (for example, the POST response was lost or receipt
+saving failed), stop and reconcile with Quafu. Do not delete the guard and rerun
+blindly. An overlapping attempt cannot reserve the same path twice; this is a
+local guard, not provider-side exactly-once submission. Local files are trusted
+context, not proof of what hardware executed. For an intentional new experiment,
+choose a new receipt filename only after checking the previous attempt.
+
 The first collection slice accepts nonempty, same-width logical circuits with
 full-register counts, a shared target and service compilation (`compiler=None`).
 Mixed widths, explicit physical mappings, local compilers and Jiuding lists are
