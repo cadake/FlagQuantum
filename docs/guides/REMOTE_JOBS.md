@@ -54,7 +54,7 @@ requires configured Quafu access and deliberately creates a real hardware job:
 ```python
 import flagquantum as fq
 
-circuits = [fq.Circuit(3).x(wire) for wire in range(3)]
+circuits = [fq.Circuit(3).x(qubit) for qubit in range(3)]
 job = fq.submit(
     circuits, target="quafu:Baihua", shots=1024, outputs=fq.counts(),
     name="asymmetric three-circuit check",

@@ -33,7 +33,7 @@ class _CollectionReceipt(TypedDict):
     schema: str
     items: list[dict[str, str]]
     shots: int
-    n_wires: int
+    n_qubits: int
     sha256: str
 
 
@@ -49,15 +49,15 @@ def validate_context(
         "schema",
         "items",
         "shots",
-        "n_wires",
+        "n_qubits",
         "sha256",
     }:
         raise ValueError("Invalid Quafu collection receipt context")
     items, shots = raw["items"], raw["shots"]
     if (
         raw["schema"] != _SCHEMA
-        or type(raw["n_wires"]) is not int
-        or raw["n_wires"] != width
+        or type(raw["n_qubits"]) is not int
+        or raw["n_qubits"] != width
         or type(shots) is not int
         or shots <= 0
         or not isinstance(items, list)
@@ -113,7 +113,7 @@ def submit_collection(
         "schema": _SCHEMA,
         "items": items,
         "shots": first.shots,
-        "n_wires": first.n_qubits,
+        "n_qubits": first.n_qubits,
         "sha256": digest,
     }
     response = client.transport.post_json(

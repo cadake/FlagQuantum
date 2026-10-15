@@ -34,7 +34,9 @@ Pagination preserves sequence indices, not response arrival order.
 The existing `flagquantum.remote-job.v1` fields remain unchanged. Collection
 decoding context occupies its optional `native_receipt` mapping, tagged
 `flagquantum.quafu-collection.v1`, with ordered per-circuit submission identities,
-requested shots and a SHA256 over that context. Restore validates this context
+requested shots, `n_qubits` and a SHA256 over that context. The existing outer
+receipt and frozen IR retain their historical field names for compatibility;
+the new context and examples use qubit terminology. Restore validates this context
 before network access. Existing single-circuit receipts continue to decode as
 before. Old readers do not support collection receipts; use the matching updated
 client. Receipt hashes detect accidental corruption, not malicious forgery or
@@ -45,7 +47,7 @@ proof of hardware execution. Credentials and executable QASM are not serialized.
 The platform's [submission guide](https://quafu.com.cn/en/docs/sdk/submit)
 documents one task per list entry, in input order, and shots per circuit.
 The published `quafu-sdk` 0.2.7 wheel was inspected without installation or
-execution solely to confirm wire fields: POST `/jobs`, `mode="collection"`,
+execution solely to confirm HTTP fields: POST `/jobs`, `mode="collection"`,
 `circuit_level="logical"`, `circuits=[{"qasm": ...}]`, and `client_ref`;
 GET `/jobs/{id}/results?offset=...&limit=...&fields=counts` returns columns
 including `seq`, `status`, `counts`, `n_clbits`, `shots_returned`, `bit_order`.

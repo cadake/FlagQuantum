@@ -82,7 +82,7 @@ def api(monkeypatch: pytest.MonkeyPatch) -> SimpleNamespace:
     monkeypatch.setattr(_quafu_collection, "_PAGE_SIZE", 2)
     return SimpleNamespace(
         transport=transport,
-        circuits=[fq.Circuit(3).x(wire) for wire in range(3)],
+        circuits=[fq.Circuit(3).x(qubit) for qubit in range(3)],
     )
 
 
@@ -103,13 +103,15 @@ def test_one_job_orders_paged_results_and_restores(
     assert payload["target"] == "Baihua" and payload["shots"] == 1024
     assert payload["name"] == "asymmetric collection"
     assert len(payload["circuits"]) == 3 and payload["client_ref"]
-    for wire, item in enumerate(payload["circuits"]):
-        assert f"x q[{wire}]" in item["qasm"]
+    for qubit, item in enumerate(payload["circuits"]):
+        assert f"x q[{qubit}]" in item["qasm"]
     path = tmp_path / "collection.receipt.json"
     job.save(path)
     assert path.stat().st_mode & 0o777 == 0o600
     text = path.read_text()
     assert "test-secret" not in text and "OPENQASM" not in text
+    context = json.loads(text)["native_receipt"]
+    assert context["n_qubits"] == 3 and "n_wires" not in context
     with pytest.raises(FileExistsError):
         job.save(path)
     restored = fq.restore_job(path)
