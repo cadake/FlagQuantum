@@ -20,6 +20,17 @@ from flagquantum.remote.qpu.quafu import QuafuProvider
 pytestmark = pytest.mark.unit
 
 
+def _batch_notebook_cells(edition: str) -> list[str]:
+    root = Path(__file__).resolve().parents[2] / "workshops/flagos2026"
+    notebook = json.loads((root / edition / "06_quafu_hardware.ipynb").read_text())
+    return [
+        "".join(cell["source"])
+        for cell in notebook["cells"]
+        if cell["cell_type"] == "code"
+        and "workshop_optional_batch" in cell["metadata"].get("tags", [])
+    ]
+
+
 class Transport:
     def __init__(self) -> None:
         self.posts: list[dict] = []
@@ -126,6 +137,120 @@ def test_one_job_orders_paged_results_and_restores(
     assert result.runtime["shots_returned"] == [1024, 1024, 1024]
     assert "service_compiler" not in result.provenance
     assert [row["task_index"] for row in result.provenance["deployment"]] == [0, 1, 2]
+    assert len(api.transport.posts) == 1
+
+
+@pytest.mark.parametrize("edition", ("notebooks", "notebooks_cn"))
+@pytest.mark.parametrize("enabled", (False, True))
+def test_optional_batch_notebook_submits_once_and_preserves_single_task_files(
+    api: SimpleNamespace,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    edition: str,
+    enabled: bool,
+) -> None:
+    monkeypatch.setattr(fq.Circuit, "draw", lambda self, **kwargs: (None, None))
+    single_files = {
+        "quafu-ry-q0-three-qubits.receipt.json": '{"id":"existing-single-task"}',
+        "quafu-ry-q0-three-qubits.json": '{"counts":{"000":768,"100":256}}',
+    }
+    for name, content in single_files.items():
+        (tmp_path / name).write_text(content)
+    scope = {
+        "fq": fq,
+        "plt": SimpleNamespace(show=lambda: None),
+        "OUTPUTS": tmp_path,
+        "target": "quafu:Baihua",
+    }
+    cells = _batch_notebook_cells(edition)
+    assert len(cells) == 3
+    for source in cells:
+        exec(source.replace("submit_batch = False", f"submit_batch = {enabled}"), scope)
+    if enabled:
+        receipt = scope["batch_receipt_path"]
+        before = receipt.read_bytes()
+        assert scope["batch_result"].counts == [
+            {"100": 1024},
+            {"010": 1024},
+            {"001": 1024},
+        ]
+        assert scope["batch_expected"] == ["100", "010", "001"]
+        payload = api.transport.posts[0]
+        assert payload["mode"] == "collection" and len(payload["circuits"]) == 3
+        assert (
+            payload["shots"] == 1024
+            and len(payload["circuits"]) * payload["shots"] == 3072
+        )
+        # Repeat in a fresh scope, including the other language, as after a restart.
+        for other in (
+            edition,
+            "notebooks_cn" if edition == "notebooks" else "notebooks",
+        ):
+            fresh = {
+                "fq": fq,
+                "plt": SimpleNamespace(show=lambda: None),
+                "OUTPUTS": tmp_path,
+                "target": "quafu:Baihua",
+            }
+            for source in _batch_notebook_cells(other):
+                exec(
+                    source.replace("submit_batch = False", "submit_batch = True"), fresh
+                )
+            assert fresh["batch_job"].id == scope["batch_job"].id
+        assert receipt.read_bytes() == before and len(api.transport.posts) == 1
+    else:
+        assert scope["batch_job"] is None and scope["batch_result"] is None
+        assert api.transport.posts == []
+        assert not scope["batch_receipt_path"].exists()
+    for name, content in single_files.items():
+        assert (tmp_path / name).read_text() == content
+
+
+@pytest.mark.parametrize("edition", ("notebooks", "notebooks_cn"))
+def test_optional_batch_notebook_rejects_changed_shots_without_resubmission(
+    api: SimpleNamespace, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, edition: str
+) -> None:
+    monkeypatch.setattr(fq.Circuit, "draw", lambda self, **kwargs: (None, None))
+    cells = _batch_notebook_cells(edition)
+    scope = {
+        "fq": fq,
+        "plt": SimpleNamespace(show=lambda: None),
+        "OUTPUTS": tmp_path,
+        "target": "quafu:Baihua",
+    }
+    for source in cells:
+        exec(source.replace("submit_batch = False", "submit_batch = True"), scope)
+    changed = (
+        cells[1]
+        .replace("submit_batch = False", "submit_batch = True")
+        .replace("batch_shots = 1024", "batch_shots = 2048")
+    )
+    with pytest.raises(ValueError, match="configuration changed"):
+        exec(changed, scope)
+    assert scope["batch_job"] is None and len(api.transport.posts) == 1
+
+
+@pytest.mark.parametrize("edition", ("notebooks", "notebooks_cn"))
+def test_optional_batch_notebook_timeout_does_not_resubmit(
+    api: SimpleNamespace, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, edition: str
+) -> None:
+    monkeypatch.setattr(fq.Circuit, "draw", lambda self, **kwargs: (None, None))
+
+    def pending(self: jobs.RemoteJob, *, timeout: int) -> None:
+        assert timeout == 30
+        raise TimeoutError("Queued")
+
+    monkeypatch.setattr(jobs.RemoteJob, "wait", pending)
+    for _ in range(2):
+        scope = {
+            "fq": fq,
+            "plt": SimpleNamespace(show=lambda: None),
+            "OUTPUTS": tmp_path,
+            "target": "quafu:Baihua",
+        }
+        for source in _batch_notebook_cells(edition):
+            exec(source.replace("submit_batch = False", "submit_batch = True"), scope)
+        assert scope["batch_result"] is None
     assert len(api.transport.posts) == 1
 
 

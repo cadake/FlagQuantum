@@ -41,7 +41,7 @@ class Circuit:
         return self
 
     def x(self, wire: int) -> Circuit:
-        assert wire == 0
+        assert wire in range(3)
         return self
 
     def ry(self, wire: int, angle: float) -> Circuit:
