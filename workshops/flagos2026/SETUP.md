@@ -80,6 +80,16 @@ they are a different experiment and must not be reused or relabeled. Switching
 between English and Chinese editions of the same lesson restores the same saved
 task. Updating the source does not update already deployed personal copies or images.
 
+Notebooks 05/06 require a matching SDK that supports `fq.submit(..., receipt=...)`.
+Update the SDK, image and teaching templates together; replacing notebook files
+alone cannot add this parameter to an older installed SDK. Repeating the same
+call restores a matching request without another submission. Keep the receipt
+and its SDK-created journal in your personal persistent output directory.
+Existing manual receipts remain usable through `fq.restore_job(path)` but are
+not silently adopted without request context. Never remove old receipts,
+submission records or results to force another task; reconcile uncertain
+attempts with the platform first.
+
 The submitting environment and the job container must both be able to read your project and write its results.
 This is what *shared storage* means in this workshop. Installing FlagQuantum on a laptop alone does not provide this access.
 

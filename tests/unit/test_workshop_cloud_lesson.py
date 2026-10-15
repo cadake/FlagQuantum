@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import sys
 from pathlib import Path
@@ -7,6 +8,8 @@ from types import ModuleType, SimpleNamespace
 from typing import Any
 
 import pytest
+
+from flagquantum.remote._job_receipts import resume_or_submit
 
 pytestmark = pytest.mark.unit
 WORKSHOP = Path(__file__).resolve().parents[2] / "workshops/flagos2026"
@@ -96,8 +99,24 @@ def setup(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> SimpleNamespace:
     calls: list[dict[str, Any]] = []
 
     def submit(circuit: object, **kwargs: Any) -> FakeJob:
-        calls.append(kwargs)
-        return job
+        path = Path(kwargs["receipt"])
+        settings = {key: value for key, value in kwargs.items() if key != "receipt"}
+        identity = hashlib.sha256(
+            json.dumps(settings, sort_keys=True).encode()
+        ).hexdigest()
+
+        def create() -> FakeJob:
+            calls.append(kwargs)
+            job.target = kwargs["target"]
+            return job
+
+        return resume_or_submit(
+            path,
+            identity=identity,
+            target=kwargs["target"],
+            submitter=create,
+            restore=restore,
+        )
 
     def restore(path: Path) -> FakeJob:
         assert json.loads(path.read_text())["id"] == job.id
@@ -113,12 +132,7 @@ def setup(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> SimpleNamespace:
         restore_job=restore,
         counts=lambda: "counts-request",
     )
-    ir = ModuleType("flagquantum.core.ir")
-    ir.__dict__["ensure_circuit_ir"] = lambda circuit: SimpleNamespace(
-        content_hash="asymmetric-hash"
-    )
     monkeypatch.setitem(sys.modules, "flagquantum", fq)
-    monkeypatch.setitem(sys.modules, "flagquantum.core.ir", ir)
     torch = ModuleType("torch")
 
     def assert_close(a: State, b: State) -> None:
@@ -136,8 +150,10 @@ def setup(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> SimpleNamespace:
     return SimpleNamespace(job=job, calls=calls, outputs=start.parent / "outputs")
 
 
-def run_cells(filename: str, *, enabled: bool) -> dict[str, Any]:
-    notebook = json.loads((WORKSHOP / "notebooks" / filename).read_text())
+def run_cells(
+    filename: str, *, enabled: bool, language: str = "notebooks"
+) -> dict[str, Any]:
+    notebook = json.loads((WORKSHOP / language / filename).read_text())
     scope: dict[str, Any] = {}
     for cell in notebook["cells"]:
         if cell["cell_type"] == "code":
@@ -160,16 +176,18 @@ def run_cells(filename: str, *, enabled: bool) -> dict[str, Any]:
     "filename", ("05_jiuding_jobs.ipynb", "06_quafu_hardware.ipynb")
 )
 @pytest.mark.parametrize("enabled", (False, True))
+@pytest.mark.parametrize("language", ("notebooks", "notebooks_cn"))
 def test_all_standard_api_cells_run_and_reruns_do_not_submit(
-    setup: SimpleNamespace, filename: str, enabled: bool
+    setup: SimpleNamespace, filename: str, enabled: bool, language: str
 ) -> None:
     for _ in range(2):
-        scope = run_cells(filename, enabled=enabled)
+        scope = run_cells(filename, enabled=enabled, language=language)
     assert len(setup.calls) == int(enabled)
     if enabled:
         assert scope["job"] is setup.job
         assert scope["receipt_path"].exists()
         request = setup.calls[0]
+        assert request["receipt"] == scope["receipt_path"]
         if filename.startswith("05"):
             assert (
                 request["queue"] == "test-queue"
@@ -200,12 +218,28 @@ def test_pending_result_is_not_failure_or_duplicate(
     assert len(setup.calls) == 1
 
 
+@pytest.mark.parametrize(
+    "filename", ("05_jiuding_jobs.ipynb", "06_quafu_hardware.ipynb")
+)
+def test_switching_language_restores_the_same_receipt(
+    setup: SimpleNamespace, filename: str
+) -> None:
+    english = run_cells(filename, enabled=True)
+    receipt = english["receipt_path"].read_bytes()
+    chinese = run_cells(filename, enabled=True, language="notebooks_cn")
+    assert english["job"].id == chinese["job"].id
+    assert chinese["receipt_path"] == english["receipt_path"]
+    assert chinese["receipt_path"].read_bytes() == receipt
+    assert len(setup.calls) == 1
+
+
 def test_changed_request_is_rejected(setup: SimpleNamespace) -> None:
     scope = run_cells("06_quafu_hardware.ipynb", enabled=True)
-    record = json.loads(scope["guard_path"].read_text())
-    record["circuit_hash"] = "different-circuit"
-    scope["guard_path"].write_text(json.dumps(record))
-    with pytest.raises(RuntimeError, match="another experiment"):
+    journal = Path(str(scope["receipt_path"]) + ".request.json")
+    record = json.loads(journal.read_text())
+    record["request_sha256"] = "0" * 64
+    journal.write_text(json.dumps(record))
+    with pytest.raises(ValueError, match="configuration changed"):
         run_cells("06_quafu_hardware.ipynb", enabled=True)
     assert len(setup.calls) == 1
 
@@ -216,7 +250,7 @@ def test_hardware_default_and_explicit_target_override(
     run_cells("06_quafu_hardware.ipynb", enabled=True)
     assert setup.calls[0]["target"] == "quafu:Baihua"
     monkeypatch.setenv("QUAFU_TARGET", "quafu:Dongling")
-    with pytest.raises(RuntimeError, match="another experiment"):
+    with pytest.raises(ValueError, match="configuration changed"):
         run_cells("06_quafu_hardware.ipynb", enabled=True)
     assert len(setup.calls) == 1
 
@@ -261,18 +295,75 @@ def test_failed_job_is_not_hidden(setup: SimpleNamespace) -> None:
     assert len(setup.calls) == 1
 
 
-def test_save_failure_keeps_guard_and_prints_id(
+def test_save_failure_keeps_guard_and_reports_id(
     setup: SimpleNamespace,
     monkeypatch: pytest.MonkeyPatch,
-    capsys: pytest.CaptureFixture[str],
 ) -> None:
     def reject(path: Path) -> None:
         raise OSError("Storage unavailable")
 
     monkeypatch.setattr(setup.job, "save", reject)
-    with pytest.raises(OSError):
+    with pytest.raises(OSError, match="saved-task.*do not resubmit"):
         run_cells("06_quafu_hardware.ipynb", enabled=True)
-    assert "saved-task" in capsys.readouterr().out
-    with pytest.raises(RuntimeError, match="do not resubmit"):
+    with pytest.raises(RuntimeError, match="reconcile"):
         run_cells("06_quafu_hardware.ipynb", enabled=True)
     assert len(setup.calls) == 1
+
+
+@pytest.mark.parametrize(
+    "filename,stem",
+    [
+        ("05_jiuding_jobs.ipynb", "jiuding-x0-three-qubits"),
+        ("06_quafu_hardware.ipynb", "quafu-ry-q0-three-qubits"),
+    ],
+)
+@pytest.mark.parametrize("language", ("notebooks", "notebooks_cn"))
+def test_legacy_receipts_are_preserved_without_automatic_adoption(
+    setup: SimpleNamespace, filename: str, stem: str, language: str
+) -> None:
+    setup.outputs.mkdir()
+    receipt = setup.outputs / f"{stem}.receipt.json"
+    old_content = '{"id": "previous-task"}'
+    receipt.write_text(old_content)
+    guard = setup.outputs / f"{stem}.submission.json"
+    guard.write_text('{"status": "previous-attempt"}')
+    with pytest.raises(ValueError, match="fq.restore_job"):
+        run_cells(filename, enabled=True, language=language)
+    assert receipt.read_text() == old_content
+    assert guard.read_text() == '{"status": "previous-attempt"}'
+    assert not Path(str(receipt) + ".request.json").exists()
+    assert setup.calls == []
+
+
+@pytest.mark.parametrize(
+    "filename,record",
+    [
+        ("05_jiuding_jobs.ipynb", "jiuding-x0-three-qubits.submission.json"),
+        ("06_quafu_hardware.ipynb", "quafu-ry-q0-three-qubits.json"),
+    ],
+)
+def test_legacy_records_without_receipts_do_not_start_new_tasks(
+    setup: SimpleNamespace, filename: str, record: str
+) -> None:
+    setup.outputs.mkdir()
+    old = setup.outputs / record
+    old.write_text('{"task_id": "previous-task"}')
+    with pytest.raises(RuntimeError, match="do not resubmit"):
+        run_cells(filename, enabled=True)
+    assert old.read_text() == '{"task_id": "previous-task"}'
+    assert setup.calls == []
+
+
+@pytest.mark.parametrize(
+    "filename", ("05_jiuding_jobs.ipynb", "06_quafu_hardware.ipynb")
+)
+def test_submission_error_does_not_leave_a_previous_job_in_the_kernel(
+    setup: SimpleNamespace, filename: str
+) -> None:
+    scope = run_cells(filename, enabled=True)
+    scope["target"] += "-changed"
+    notebook = json.loads((WORKSHOP / "notebooks" / filename).read_text())
+    source = "".join(notebook["cells"][10]["source"])
+    with pytest.raises(ValueError, match="configuration changed"):
+        exec(source, scope)
+    assert scope["job"] is None and len(setup.calls) == 1
