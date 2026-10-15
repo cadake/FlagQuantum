@@ -310,8 +310,10 @@ def submit(
             )
             for item in circuits
         ]
-        client = QuafuProvider(reverse_result_bits=True)
-        handle, context = submit_collection(client, [item[0] for item in prepared])
+        quafu_client = QuafuProvider(reverse_result_bits=True)
+        handle, context = submit_collection(
+            quafu_client, [item[0] for item in prepared]
+        )
         return RemoteJob(
             _Receipt(
                 handle.task_id,
@@ -322,7 +324,7 @@ def submit(
                 submission_identity=dict(handle.payload),
                 native_receipt=dict(context),
             ),
-            client,
+            quafu_client,
         )
     ir = ensure_circuit_ir(program)
     provider, separator, backend = target.partition(":")

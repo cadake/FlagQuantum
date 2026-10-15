@@ -280,9 +280,12 @@ def collection_result(
         name=name,
     )
     returned = [item.shots for item in native]
+    counts: list[dict[str | int, int]] = [
+        {key: value for key, value in item.counts.items()} for item in native
+    ]
     measurement = replace(
         first.measurements[0],
-        value=[dict(item.counts) for item in native],
+        value=counts,
         shots=returned[0] if len(set(returned)) == 1 else None,
     )
     return replace(
