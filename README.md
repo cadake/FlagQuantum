@@ -4,7 +4,7 @@
 <p><strong>Quantum computing, built for learning.</strong></p>
 <p>A PyTorch-first framework for differentiable quantum computing and quantum AI.</p>
 
-[Quick start](#install-and-train-your-first-quantum-model) · [Documentation](docs/README.md) · [Examples](examples/README.md)
+[Qubit ordering](#qubit-ordering-qubit-0-is-the-most-significant-bit) · [Quick start](#install-and-train-your-first-quantum-model) · [Documentation](docs/README.md) · [Examples](examples/README.md)
 
 </div>
 
@@ -24,6 +24,39 @@ Support is specific to each backend and workload. Local training and selected
 distributed paths have correctness evidence.
 See the [validation scope](docs/reference/PUBLICATION_VALIDATION.md) for what has
 been tested and what remains a research goal.
+
+## Qubit ordering: qubit 0 is the most-significant bit
+
+> [!IMPORTANT]
+> **FlagQuantum uses big-endian qubit order.** For an `n`-qubit register,
+> basis states are written as `|q0 q1 ... q(n-1)>`; qubit `0` is the
+> most-significant bit (MSB), and qubit `n-1` is the least-significant bit (LSB).
+
+By default, a circuit starts in `|00...0>`, with amplitude `1` at statevector
+index `0` and `0` everywhere else. For example, applying `X` to qubit `0` of
+`|000>` produces `|100>` at index `4`; applying it to qubit `2` produces
+`|001>` at index `1`.
+This matches the tensor-product notation
+`|q0> ⊗ |q1> ⊗ ... ⊗ |q(n-1)>`, keeping equations, matrices, and qubit
+lists in the same left-to-right order.
+
+| Framework or service | Exposed qubit/result order | Compared with FlagQuantum |
+| --- | --- | --- |
+| **[FlagQuantum](https://flagquantum.com)** | Qubit `0` is the MSB | Native convention |
+| [Cirq](https://quantumai.google/reference/python/cirq/StateVectorMixin) | The first qubit in `qubit_order` is the MSB | Same when ordered `[q0, q1, ...]` |
+| [PennyLane](https://docs.pennylane.ai/en/stable/code/api/pennylane.BasisState.html) | Basis-state digits follow the supplied qubit sequence | Same when ordered `[0, 1, ...]` |
+| [Qiskit](https://quantum.cloud.ibm.com/docs/en/guides/bit-ordering) | Qubit `0` is the LSB | Opposite significance |
+| [NVIDIA cuStateVec](https://docs.nvidia.com/cuda/cuquantum/24.08.1/custatevec/overview.html#bit-ordering) | Index bit `0` is the LSB | Opposite significance |
+| [Jiuding QuantumAI Cloud](https://cloud.flagquantum.com) | Runs FlagQuantum remotely and returns FlagQuantum-ordered results | Same |
+| [Quafu](https://quafu.com.cn) | Provider count strings are converted to logical qubit order, with qubit `0` on the left | Normalized to the same order |
+| [Amazon Braket](https://aws.amazon.com/braket/) | Ascending qubit order, with qubit `0` as the MSB | Same |
+| [Azure Quantum](https://learn.microsoft.com/azure/quantum/overview-azure-quantum) | Depends on the selected Azure target and hardware provider | No platform-wide convention |
+
+Endianness affects statevector, matrix, and bitstring indexing, not the
+`(control, target)` order of gate arguments. Convert representations at framework
+boundaries instead of reversing gate arguments. Cloud services commonly expose
+measurement results rather than raw statevectors, so the service rows describe
+the order visible at FlagQuantum's result boundary.
 
 ## Install and train your first quantum model
 
@@ -51,7 +84,7 @@ should use the recommended 2.13.x or 2.14.x runtime above. The first CPU install
 PyTorch. On a clean GitHub Ubuntu runner it took about 16 seconds; slower
 networks will take longer.
 
-**GPU:** Select a PyTorch 2.13.x or 2.14.x command matching your accelerator from the
+**NVIDIA GPU:** Select a PyTorch 2.13.x or 2.14.x CUDA command from the
 [PyTorch installer](https://pytorch.org/get-started/locally/), then run:
 
 ```console
@@ -60,17 +93,23 @@ python -m pip install flagquantum
 
 Installing from source? Follow the short setup in [CONTRIBUTING.md](CONTRIBUTING.md).
 
-**Vendor accelerators (for example, MetaX C550):** Keep the vendor-provided
-PyTorch runtime installed, then use the same `python -m pip install flagquantum`
-command. The core requirement accepts `torch>=2.10,<2.15`, including local version
-labels such as `2.10.0+metax3.8.1.0`; do not install the upstream CPU/CUDA wheel
-over the vendor runtime. The C550 runtime above passed single-card autograd and
-single-node two/eight-card statevector forward, training and checkpoint recovery
-checks. This is not multi-node, capacity or performance certification. Vendor
-drivers, Torch-FL and security patch maintenance remain platform-managed.
-Avoid `--upgrade`/`--upgrade-strategy eager` when retaining a managed runtime.
-The `invertible` extra still requires PyTorch 2.13.x and is not a vendor-runtime
-installation shortcut.
+**Native accelerator support:** FlagQuantum runs directly on the following
+vendor-provided PyTorch runtimes.
+
+|  |  |
+| --- | --- |
+| **NVIDIA CUDA** | Upstream PyTorch |
+| **Hygon DCU** | Vendor PyTorch runtime |
+| **Moore Threads MUSA** | Vendor PyTorch runtime |
+| **MetaX** | Vendor PyTorch runtime |
+| **Biren** | Vendor PyTorch runtime |
+
+Keep the vendor runtime installed, then run `python -m pip install flagquantum`.
+The core requirement accepts `torch>=2.10,<2.15`, including local version labels
+such as `2.10.0+metax3.8.1.0`; do not replace a managed runtime with an upstream
+CPU/CUDA wheel. Avoid `--upgrade`/`--upgrade-strategy eager` when retaining a
+managed runtime. The `invertible` extra still requires PyTorch 2.13.x and is not
+a vendor-runtime installation shortcut.
 
 To build a CPU or GPU environment with QSteed and optional JAX, follow the
 [container guide](docker/dev/README.md).
@@ -106,13 +145,15 @@ For a complete classical–quantum model, follow the
 
 ## Same circuit. Different execution targets.
 
-The experimental adapters can evaluate the same observable on a Jiuding GPU
-workspace or Quafu quantum hardware. Configure the [Jiuding workspace and credentials](docs/guides/JIUDING.md)
-or the [Quafu token](docs/guides/QUAFU_BACKEND.md) before
-running the corresponding call.
+The experimental adapters can evaluate the same observable on a
+[Jiuding QuantumAI Cloud](https://cloud.flagquantum.com) GPU workspace or Quafu
+quantum hardware. Configure the
+[Jiuding QuantumAI Cloud workspace and credentials](docs/guides/JIUDING.md) or
+the [Quafu token](docs/guides/QUAFU_BACKEND.md) before running the corresponding
+call.
 
 ```python
-# GPU simulation in a running Jiuding workspace
+# Managed GPU simulation on Jiuding QuantumAI Cloud
 jiuding_result = fq.run(
     trained_circuit, target="jiuding:gpu", outputs=measurement,
 )
@@ -124,9 +165,9 @@ quafu_result = fq.run(
 )
 ```
 
-The Jiuding call above needs `JIUDING_WORKSPACE` set to the running workspace
-name when it is invoked from outside that workspace; inside the workspace the
-name is discovered automatically. See
+The Jiuding QuantumAI Cloud call above needs `JIUDING_WORKSPACE` set to the
+running workspace name when it is invoked from outside that workspace; inside
+the workspace the name is discovered automatically. See
 [repeated low-latency workspace execution](docs/guides/JIUDING.md#repeated-low-latency-workspace-execution).
 
 Direct Quafu submission is available in the 0.3 release line, including the
@@ -138,10 +179,10 @@ plugin, as described in
 [optional local compiler plugin](docs/guides/QUAFU_BACKEND.md#optional-local-compiler-plugin).
 The `quafu` extra does not install that plugin.
 
-Jiuding computes a simulated expectation; Quafu estimates it from hardware
-measurements. The training example runs on your local machine; these calls
-evaluate the trained circuit remotely. Live provider access is required and is
-not certified by the local or A800 checks.
+Jiuding QuantumAI Cloud computes a simulated expectation; Quafu estimates it
+from hardware measurements. The training example runs on your local machine;
+these calls evaluate the trained circuit remotely. Live provider access is
+required and is not certified by the local or A800 checks.
 
 ## Go further
 
