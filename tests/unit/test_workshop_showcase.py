@@ -75,6 +75,20 @@ def test_showcase_uses_native_apis_and_copyable_python(relative: str) -> None:
         assert "cloud_lesson" not in snippet and "WORKSHOP" not in snippet
         assert "/home/" not in snippet and "/share/" not in snippet
     if relative in MAIN[-2:]:
-        assert "fq.submit(" in code and "fq.restore_job(" in code
-        assert "job.save(" in code and "job.status()" in code and "job.wait(" in code
+        assert "fq.submit(" in code and "receipt=receipt_path" in code
+        assert "job.status()" in code and "job.wait(" in code
+        assert "job.save(" not in code and "fq.restore_job(" not in code
+        assert "ensure_circuit_ir" not in code and 'guard_path.open("x")' not in code
+        for snippet in snippets:
+            calls = [
+                node
+                for node in ast.walk(ast.parse(snippet))
+                if isinstance(node, ast.Call)
+                and isinstance(node.func, ast.Attribute)
+                and node.func.attr == "submit"
+            ]
+            assert calls and all(
+                any(keyword.arg == "receipt" for keyword in call.keywords)
+                for call in calls
+            )
     assert f"notebooks/{relative}" in (WORKSHOP / "README.md").read_text()

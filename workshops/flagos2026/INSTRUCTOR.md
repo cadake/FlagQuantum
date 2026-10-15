@@ -59,6 +59,14 @@ Check the current [Jiuding guide](../../docs/guides/JIUDING.md) and repeat the t
 
 Record what passed and what still needs attention. Local notebook checks do not replace this rehearsal.
 
+Deploy the 05/06 notebook update with the receipt-aware SDK, not over an older
+image that lacks `submit(receipt=...)`. Both language editions deliberately use
+the same personal receipt paths. Preserve existing receipts and results during
+template updates; legacy manual receipts require explicit restoration, while
+uncertain attempts must be reconciled before any new submission. The published
+defaults remain local rehearsal; enabling the event switches still requires the
+separate live acceptance and resource authorization above.
+
 ## Pilot with people who have not seen the notebooks
 
 Invite a quantum beginner, a PyTorch user, and a scientific-computing or systems developer to try their chosen route.

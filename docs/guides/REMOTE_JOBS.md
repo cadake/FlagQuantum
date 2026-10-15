@@ -45,6 +45,81 @@ to use service compilation, or pass `compiler="qsteed"` for local compilation.
 Grouped expectations remain available through `fq.run()`, but are not accepted
 by `submit()` because they can produce several hardware tasks.
 
+## Multiple circuits in one Quafu job
+
+Pass a list rather than calling `submit` in a loop. Each circuit becomes one
+task (#0, #1, #2) under a single parent job and one saved receipt. This example
+requires configured Quafu access. On its first run it creates a real hardware
+job; later runs validate the saved request and restore that job:
+
+```python
+from pathlib import Path
+
+import flagquantum as fq
+
+circuits = [fq.Circuit(3).x(qubit) for qubit in range(3)]
+target = "quafu:Baihua"
+shots = 1024
+receipt = Path("three-circuits.receipt.json")
+
+print("Receipt path:", receipt.resolve())
+job = fq.submit(
+    circuits, target=target, shots=shots, outputs=fq.counts(),
+    receipt=receipt, name="asymmetric three-circuit check",
+)
+print("Job ID:", job.id)
+
+result = job.wait(timeout=300)
+for index, counts in enumerate(result.counts):
+    print(index, counts)
+```
+
+For ideal execution the dominant strings would be `100`, `010`, `001`, in
+that order (q0 on the left); hardware can add noise. Counts are already in
+FlagQuantum order, not the portal's classical-register display order.
+`shots=1024` applies to each circuit: this example requests 3072 shots overall.
+`receipt=` submits and saves on the first run; subsequent matching calls restore
+the same job without another submission. Keep the receipt and the SDK-created
+`<receipt>.request.json` journal together in your personal,
+persistent directory. This relative filename is resolved against the current
+working directory, printed above; it is not a search of previous cloud jobs.
+After a restart use the same directory or the same absolute receipt path.
+Circuit identities are ordered: changing a gate, angle,
+width, circuit count or circuit order rejects reuse, as do changes to target or
+shots. Restoring, waiting, corrupt/missing files and configuration mismatches
+never trigger an automatic submission fallback.
+
+The SDK reserves its journal exclusively before submission. If a journal exists but
+the receipt is missing (for example, the POST response was lost or receipt
+saving failed), stop and reconcile with Quafu. Do not delete the guard and rerun
+blindly. An overlapping attempt cannot reserve the same path twice; this is a
+local guard, not provider-side exactly-once submission. Local files are trusted
+context, not proof of what hardware executed. For an intentional new experiment,
+choose a new receipt filename only after checking the previous attempt.
+
+The same `receipt=` option supports Quafu single-circuit jobs and native Jiuding
+jobs. Jiuding additionally checks image, devices, project and queue. Credentials
+are not persisted; provide current credentials on each call as usual. Existing
+manually saved receipts without a request journal remain usable with
+`fq.restore_job(path)`, but cannot be silently adopted by `submit(receipt=...)`.
+Without `receipt=`, `submit` continues to create a new job on every call.
+
+The first collection slice accepts nonempty, same-width logical circuits with
+full-register counts, a shared target and service compilation (`compiler=None`).
+Mixed widths, explicit physical mappings, local compilers and Jiuding lists are
+not supported. A one-element list still creates a collection.
+
+The adapter reads `max_tasks_per_job` from the target's public metadata before
+submitting and fails if that limit cannot be verified. It makes one collection
+POST with no automatic retry or legacy fallback. Status, wait and cancellation
+apply to the whole job. A partially finished collection is reported as failed;
+missing or failed rows are never silently dropped. Result pagination is aligned
+by task sequence, and returned counts/shot accounting are checked per circuit.
+
+Use the matching updated client to restore collection receipts. Older single
+circuit receipts remain supported. Offline tests do not establish that a live
+platform accepted a collection or that a specific device is available.
+
 ## Restore after restarting the Notebook
 
 Keep the receipt private. It contains job identity and decoding context, not
