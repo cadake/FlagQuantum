@@ -87,6 +87,22 @@ requires all evidence for the target level to pass
 `python tools/check_capability_maturity.py`.
 <!-- END GENERATED KNOWN_LIMITATIONS -->
 
+## Quafu multi-circuit job boundary
+
+The additive `fq.submit` collection path is an offline-tested adapter slice:
+one parent job and one receipt for nonempty, same-width logical circuits with
+full-register counts. Shots apply per circuit. Mixed widths, physical mappings,
+local compilers, per-circuit shot counts and collection submission to other
+providers are not supported. A terminal partially finished collection fails as
+a whole rather than returning only successful rows. The platform's published
+task limit must be readable before submission; there is no collection fallback
+or automatic POST retry. Existing single-circuit behavior is unchanged.
+
+Mock transport tests establish ordering, bit conversion and receipt recovery,
+not live platform grouping or hardware availability. This does not promote a
+hardware or scalability capability claim. See the
+[remote job guide](../guides/REMOTE_JOBS.md#multiple-circuits-in-one-quafu-job).
+
 ## JAX-to-PyTorch differentiation
 
 The hybrid JAX kernel supports first-order gradients for circuit parameters and

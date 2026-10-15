@@ -45,6 +45,50 @@ to use service compilation, or pass `compiler="qsteed"` for local compilation.
 Grouped expectations remain available through `fq.run()`, but are not accepted
 by `submit()` because they can produce several hardware tasks.
 
+## Multiple circuits in one Quafu job
+
+Pass a list rather than calling `submit` in a loop. Each circuit becomes one
+task (#0, #1, #2) under a single parent job and one saved receipt. This example
+requires configured Quafu access and deliberately creates a real hardware job:
+
+```python
+import flagquantum as fq
+
+circuits = [fq.Circuit(3).x(wire) for wire in range(3)]
+job = fq.submit(
+    circuits, target="quafu:Baihua", shots=1024, outputs=fq.counts(),
+    name="asymmetric three-circuit check",
+)
+job.save("three-circuits.receipt.json")
+print(job.id)
+
+# After a restart, restore this file instead of submitting again.
+job = fq.restore_job("three-circuits.receipt.json")
+result = job.wait(timeout=300)
+for index, counts in enumerate(result.counts):
+    print(index, counts)
+```
+
+For ideal execution the dominant strings would be `100`, `010`, `001`, in
+that order (q0 on the left); hardware can add noise. Counts are already in
+FlagQuantum order, not the portal's classical-register display order.
+`shots=1024` applies to each circuit: this example requests 3072 shots overall.
+The first collection slice accepts nonempty, same-width logical circuits with
+full-register counts, a shared target and service compilation (`compiler=None`).
+Mixed widths, explicit physical mappings, local compilers and Jiuding lists are
+not supported. A one-element list still creates a collection.
+
+The adapter reads `max_tasks_per_job` from the target's public metadata before
+submitting and fails if that limit cannot be verified. It makes one collection
+POST with no automatic retry or legacy fallback. Status, wait and cancellation
+apply to the whole job. A partially finished collection is reported as failed;
+missing or failed rows are never silently dropped. Result pagination is aligned
+by task sequence, and returned counts/shot accounting are checked per circuit.
+
+Use the matching updated client to restore collection receipts. Older single
+circuit receipts remain supported. Offline tests do not establish that a live
+platform accepted a collection or that a specific device is available.
+
 ## Restore after restarting the Notebook
 
 Keep the receipt private. It contains job identity and decoding context, not

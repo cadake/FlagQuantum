@@ -4,6 +4,12 @@ FlagQuantum prefers Quafu's current task API and falls back to the legacy SQC
 HTTP contract when the new platform is unavailable before submission.
 Installing `quafusqc` is not required.
 
+For detached multi-circuit jobs, pass a same-width circuit list to `fq.submit`;
+see [one collection, one receipt](REMOTE_JOBS.md#multiple-circuits-in-one-quafu-job).
+Collections require the current task API, verified target limits and logical
+service compilation. Unlike the single-circuit compatibility path, they never
+fall back to SQC or silently create separate parent jobs.
+
 ## Configure credentials
 
 Keep credentials outside source control. `QUAFU_API_KEY` authenticates the
