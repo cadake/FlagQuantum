@@ -136,7 +136,7 @@ def _run_guide_example(
     section = guide.read_text().split("## Multiple circuits in one Quafu job\n", 1)[1]
     code = section.split("```python\n", 1)[1].split("```", 1)[0]
     # Execute the published workflow with test inputs and a fully offline transport.
-    workflow = code[code.index("request = {") :]
+    workflow = code[code.index("job = fq.submit(") :]
     scope = {
         "fq": fq,
         "json": json,
@@ -146,6 +146,7 @@ def _run_guide_example(
         "receipt": tmp_path / "three-circuits.receipt.json",
     } | (changes or {})
     exec(compile(workflow, str(guide), "exec"), scope)
+    scope["request_path"] = Path(str(scope["receipt"]) + ".request.json")
     return scope
 
 
@@ -216,10 +217,10 @@ def test_guide_restore_failure_is_not_a_submission_fallback(
 ) -> None:
     _run_guide_example(api, tmp_path)
 
-    def fail_restore(path: Path) -> None:
+    def fail_restore(path: Path, *, credentials: object = None) -> None:
         raise RuntimeError("restore unavailable")
 
-    monkeypatch.setattr(fq, "restore_job", fail_restore)
+    monkeypatch.setattr(jobs, "restore_job", fail_restore)
     with pytest.raises(RuntimeError, match="restore unavailable"):
         _run_guide_example(api, tmp_path)
     assert len(api.transport.posts) == 1
@@ -232,7 +233,7 @@ def test_guide_lost_response_leaves_a_guard_against_resubmission(
     with pytest.raises(TimeoutError, match="response lost"):
         _run_guide_example(api, tmp_path)
     api.transport.error = None
-    with pytest.raises(RuntimeError, match="reconcile with Quafu"):
+    with pytest.raises(RuntimeError, match="reconcile with the provider"):
         _run_guide_example(api, tmp_path)
     assert len(api.transport.posts) == 1
 
@@ -246,7 +247,7 @@ def test_guide_receipt_save_failure_does_not_allow_another_post(
     monkeypatch.setattr(jobs.RemoteJob, "save", fail_save)
     with pytest.raises(OSError, match="disk full"):
         _run_guide_example(api, tmp_path)
-    with pytest.raises(RuntimeError, match="reconcile with Quafu"):
+    with pytest.raises(RuntimeError, match="reconcile with the provider"):
         _run_guide_example(api, tmp_path)
     assert len(api.transport.posts) == 1
 

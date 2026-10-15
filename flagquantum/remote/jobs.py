@@ -253,6 +253,7 @@ def submit(
     project: str | None = None,
     queue: str | None = None,
     credentials: JiudingCredentials | None = None,
+    receipt: str | Path | None = None,
 ) -> RemoteJob:
     """Submit once and return without waiting for remote execution.
 
@@ -264,8 +265,69 @@ def submit(
 
     A Quafu sequence submits one collection of same-width logical circuits.
     Shots apply per circuit; result().counts preserves the input order.
+
+    With receipt=path, restore a matching prior request or submit once and save.
+    A changed request, damaged record or uncertain prior attempt raises instead
+    of resubmitting. Keep the receipt and its SDK-owned request journal together
+    in a personal persistent directory. Credentials are not stored.
+
+    Examples:
+        Requires provider credentials and quota; this explicitly submits real work::
+
+            job = fq.submit(circuits, target="quafu:Baihua", shots=1024,
+                            outputs=fq.counts(), receipt="experiment.receipt.json")
+            result = job.wait(timeout=300)
     """
     from ..core.ir import ensure_circuit_ir
+
+    if receipt is not None:
+        from ._job_receipts import request_digest, resume_or_submit
+
+        if isinstance(program, Sequence) and not isinstance(program, (str, bytes)):
+            program = tuple(ensure_circuit_ir(item) for item in program)
+        else:
+            program = ensure_circuit_ir(program)
+        if isinstance(target, str) and target.startswith("jiuding:"):
+            project = project or os.environ.get("JIUDING_PROJECT")
+            devices = 1 if devices is None else devices
+        identity = request_digest(
+            program,
+            outputs=outputs,
+            shots=shots,
+            settings={
+                "target": target,
+                "shots": shots,
+                "devices": devices,
+                "compiler": compiler,
+                "target_qubits": target_qubits,
+                "name": name,
+                "image": image,
+                "workspace": workspace,
+                "project": project,
+                "queue": queue,
+            },
+        )
+        return resume_or_submit(
+            receipt,
+            identity=identity,
+            target=target,
+            submitter=lambda: submit(
+                program,
+                target=target,
+                devices=devices,
+                outputs=outputs,
+                shots=shots,
+                compiler=compiler,
+                target_qubits=target_qubits,
+                name=name,
+                image=image,
+                workspace=workspace,
+                project=project,
+                queue=queue,
+                credentials=credentials,
+            ),
+            restore=lambda path: restore_job(path, credentials=credentials),
+        )
 
     if isinstance(program, Sequence) and not isinstance(program, (str, bytes)):
         if not program:

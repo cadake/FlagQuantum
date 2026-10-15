@@ -28,6 +28,12 @@ logical circuits and full-register counts; `job.result().counts` follows input
 order. See the [remote job guide](../../docs/guides/REMOTE_JOBS.md) for receipt,
 failure and quota semantics. A mock transport test is not hardware acceptance.
 
+Pass `receipt="experiment.receipt.json"` to opt into SDK-owned saving and
+matching-request recovery for Quafu and native Jiuding jobs. Repeating the call
+restores the job; changed settings or uncertain attempts fail without resubmitting.
+Keep the receipt and its SDK-created journal in the same personal persistent
+directory. Without this option, each `submit` call still creates new work.
+
 Run offline adapter checks from the repository root:
 
 ```bash
