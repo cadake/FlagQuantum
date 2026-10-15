@@ -17,7 +17,10 @@ Benchmark claims require audited artifacts and are not inferred from this file.
 
 ## Unreleased
 
-- No changes yet.
+- Added opt-in `fq.submit(..., receipt=path)` recovery for Quafu and native
+  Jiuding jobs. Matching requests restore automatically; configuration changes,
+  damaged records and uncertain attempts fail without automatic resubmission.
+  Existing calls without a receipt and standalone `fq.restore_job` are unchanged.
 
 ## 0.3.0rc3 (2026-10-10)
 
