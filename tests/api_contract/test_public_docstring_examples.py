@@ -15,6 +15,7 @@ from flagquantum.compiler.openqasm_import import (
 )
 from flagquantum.ecosystem.cirq import run as run_cirq
 from flagquantum.ecosystem.pennylane import run as run_pennylane
+from flagquantum.ecosystem.qcis import import_qcis
 from flagquantum.ecosystem.qiskit import run as run_qiskit
 from flagquantum.ecosystem.simulators import recommend as recommend_simulator
 from flagquantum.qec import CssCode, CssCodeMatrices, build_memory_circuit
@@ -45,6 +46,7 @@ ENTRIES = (
     gather_distributed_statevector,
     import_openqasm,
     import_openqasm_to_ir,
+    import_qcis,
     optimize,
     planner.plan,
     recommend_simulator,

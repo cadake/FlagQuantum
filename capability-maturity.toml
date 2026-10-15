@@ -1054,6 +1054,24 @@ integration_tests = "tests/test_openqasm_import.py"
 hardware_evidence = "not_applicable_pure_contract"
 operational_runbook = "flagquantum/compiler/README.md"
 
+[capabilities.qcis_import]
+title = "Static ideal-circuit QCIS import"
+summary = "Convert numeric or parameterized QCIS gate text and terminal Z measurements to owned CircuitIR without a compiler or container dependency."
+category = "deployment_and_extension"
+user_goals = ["Import static QCIS from any supported producer", "Bind and simulate parameterized QCIS circuits", "Inspect label mapping and timing loss"]
+public_apis = ["flagquantum.ecosystem.qcis.import_qcis"]
+runtime_modes = ["control_plane_conversion"]
+hardware = ["cpu_control_plane"]
+gradient_support = "symbolic_parameters_with_cpu_autograd_validation"
+distribution_semantics = "not_applicable"
+quick_start = "flagquantum/ecosystem/qcis/README.md"
+documentation = "flagquantum/ecosystem/qcis/README.md"
+level = "experimental"
+owner = "interop maintainers"
+limitations = "Lossless refers only to supported ideal circuit semantics, not complete QCIS hardware semantics. Static gate text: X2P, X2M, Y2P, Y2M, RZ, CZ, X, Y, Z, H, S, SD, T, TD, RX, RY, RXY, and distinct terminal M operands. Numeric Q labels are compacted in ascending order with original labels retained; absent idle qubit extent is unknown. Terminal measurements request exact Z-basis probabilities because QCIS specifies no shots. I and B require explicit allow_lossy=True and report omitted timing/alignment; annotations are not executable timing or noise semantics. Angles support finite decimals, pi, named parameters, parentheses, unary signs, addition, subtraction, multiplication and division by nonzero constants; other expressions fail. Bind via the existing Circuit API; converting IR to Circuit requires explicitly restoring terminal output requests. Shared expressions preserve first-order CPU autograd after binding. Unknown instructions, pulses, reset, dynamic control, malformed text, and nonterminal or duplicate measurement fail even with allow_lossy. No external compiler, container, SDK, Runtime, or Simulation dependency is introduced at the import boundary."
+focused_tests = "tests/unit/test_qcis_import.py"
+integration_tests = "tests/integration/test_qcis_import.py"
+
 [capabilities.qiskit_aer_execution]
 title = "Qiskit Aer execution bridge"
 summary = "Execute a FlagQuantum circuit explicitly on local Qiskit Aer while preserving FlagQuantum-owned result and evidence contracts."

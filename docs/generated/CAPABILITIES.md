@@ -152,6 +152,9 @@ This catalog is generated from the machine-validated
 | Save a circuit as OpenQASM text | OpenQASM 2 and OpenQASM 3 interchange | Production supported | [Run example](../../flagquantum/compiler/README.md) |
 | Load OpenQASM text back into FlagQuantum | OpenQASM 2 and OpenQASM 3 interchange | Production supported | [Run example](../../flagquantum/compiler/README.md) |
 | Know exactly why a piece of OpenQASM was refused | OpenQASM 2 and OpenQASM 3 interchange | Production supported | [Run example](../../flagquantum/compiler/README.md) |
+| Import static QCIS from any supported producer | Static ideal-circuit QCIS import | Experimental | [Run example](../../flagquantum/ecosystem/qcis/README.md) |
+| Bind and simulate parameterized QCIS circuits | Static ideal-circuit QCIS import | Experimental | [Run example](../../flagquantum/ecosystem/qcis/README.md) |
+| Inspect label mapping and timing loss | Static ideal-circuit QCIS import | Experimental | [Run example](../../flagquantum/ecosystem/qcis/README.md) |
 | Execute FlagQuantum code on Qiskit Aer | Qiskit Aer execution bridge | Experimental | [Run example](../../docs/guides/QISKIT_AER_EXECUTION.md) |
 | Compare an external simulator without changing the native default | Qiskit Aer execution bridge | Experimental | [Run example](../../docs/guides/QISKIT_AER_EXECUTION.md) |
 | Inspect external-backend provenance and fallback status | Qiskit Aer execution bridge | Experimental | [Run example](../../docs/guides/QISKIT_AER_EXECUTION.md) |
@@ -1133,6 +1136,20 @@ Translate supported Qiskit circuits to versioned FlagQuantum IR and export FlagQ
 - **Start:** [quick example](../../docs/reference/API.md)
 - **Documentation:** [guide](../../docs/reference/API.md)
 - **Known boundary:** Certified against Qiskit 2.0.x and 2.5.x with Aer 0.17.x through an executable operation, wire-order, statevector, classical-bit, arithmetic-parameter-expression, custom-unitary, and round-trip contract. Six fixed-seed differential programs exercise both conversion directions across three to five qubits, mixed one- to three-qubit operations, reordered qubits, and asymmetric custom unitaries. ParameterExpression import supports the FlagQuantum v1 add/multiply/negate arithmetic subset after Qiskit symbolic simplification; functions, powers, and other operations fail closed. One- to three-qubit custom unitary matrices are converted with explicit local basis-order normalization and validated before export. Qiskit control flow is rejected; named or multiple registers require explicit lossy flattening; custom unitary matrices above three qubits are rejected. Conversion does not make Qiskit a runtime dependency or certify any provider hardware.
+
+### Static ideal-circuit QCIS import
+
+Convert numeric or parameterized QCIS gate text and terminal Z measurements to owned CircuitIR without a compiler or container dependency.
+
+- **Maturity:** Experimental
+- **Public API:** `flagquantum.ecosystem.qcis.import_qcis`
+- **Runtime modes:** `control_plane_conversion`
+- **Hardware:** `cpu_control_plane`
+- **Gradient support:** `symbolic_parameters_with_cpu_autograd_validation`
+- **Distribution semantics:** `not_applicable`
+- **Start:** [quick example](../../flagquantum/ecosystem/qcis/README.md)
+- **Documentation:** [guide](../../flagquantum/ecosystem/qcis/README.md)
+- **Known boundary:** Lossless refers only to supported ideal circuit semantics, not complete QCIS hardware semantics. Static gate text: X2P, X2M, Y2P, Y2M, RZ, CZ, X, Y, Z, H, S, SD, T, TD, RX, RY, RXY, and distinct terminal M operands. Numeric Q labels are compacted in ascending order with original labels retained; absent idle qubit extent is unknown. Terminal measurements request exact Z-basis probabilities because QCIS specifies no shots. I and B require explicit allow_lossy=True and report omitted timing/alignment; annotations are not executable timing or noise semantics. Angles support finite decimals, pi, named parameters, parentheses, unary signs, addition, subtraction, multiplication and division by nonzero constants; other expressions fail. Bind via the existing Circuit API; converting IR to Circuit requires explicitly restoring terminal output requests. Shared expressions preserve first-order CPU autograd after binding. Unknown instructions, pulses, reset, dynamic control, malformed text, and nonterminal or duplicate measurement fail even with allow_lossy. No external compiler, container, SDK, Runtime, or Simulation dependency is introduced at the import boundary.
 
 ### Qiskit Aer execution bridge
 
