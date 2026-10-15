@@ -20,18 +20,34 @@ class State:
         return self
 
     def tolist(self) -> list[float]:
-        return [0.5, 0, 0, 0.5]
+        return [0.75, 0, 0, 0, 0.25, 0, 0, 0]
+
+    def reshape(self, size: int) -> State:
+        assert size == -1
+        return self
 
 
 class Circuit:
     def __init__(self, qubits: int) -> None:
-        assert qubits == 2
+        assert qubits == 3
 
     def h(self, wire: int) -> Circuit:
         return self
 
     def cx(self, control: int, target: int) -> Circuit:
         return self
+
+    def x(self, wire: int) -> Circuit:
+        assert wire == 0
+        return self
+
+    def ry(self, wire: int, angle: float) -> Circuit:
+        assert wire == 0
+        return self
+
+    def draw(self, *, format: str, show_all_qubits: bool) -> tuple[None, None]:
+        assert format == "mpl" and show_all_qubits
+        return None, None
 
 
 class FakeJob:
@@ -54,7 +70,7 @@ class FakeJob:
             raise TimeoutError("Queued")
         if self.outcome == "failed":
             raise RuntimeError("Backend failed")
-        return SimpleNamespace(state=State(), counts=[{"00": 512, "11": 512}])
+        return SimpleNamespace(state=State(), counts=[{"000": 768, "100": 256}])
 
 
 @pytest.fixture
@@ -90,14 +106,16 @@ def setup(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> SimpleNamespace:
     fq = ModuleType("flagquantum")
     fq.__dict__.update(
         Circuit=Circuit,
-        run=lambda circuit: SimpleNamespace(state=State()),
+        run=lambda circuit: SimpleNamespace(
+            state=State(), to_statevector=lambda: State()
+        ),
         submit=submit,
         restore_job=restore,
         counts=lambda: "counts-request",
     )
     ir = ModuleType("flagquantum.core.ir")
     ir.__dict__["ensure_circuit_ir"] = lambda circuit: SimpleNamespace(
-        content_hash="bell-hash"
+        content_hash="asymmetric-hash"
     )
     monkeypatch.setitem(sys.modules, "flagquantum", fq)
     monkeypatch.setitem(sys.modules, "flagquantum.core.ir", ir)
@@ -108,6 +126,13 @@ def setup(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> SimpleNamespace:
 
     torch.__dict__["testing"] = SimpleNamespace(assert_close=assert_close)
     monkeypatch.setitem(sys.modules, "torch", torch)
+    matplotlib = ModuleType("matplotlib")
+    pyplot = ModuleType("matplotlib.pyplot")
+    for name in ("show", "bar", "xticks", "xlabel", "ylabel", "legend"):
+        pyplot.__dict__[name] = lambda *args, **kwargs: None
+    matplotlib.__dict__["pyplot"] = pyplot
+    monkeypatch.setitem(sys.modules, "matplotlib", matplotlib)
+    monkeypatch.setitem(sys.modules, "matplotlib.pyplot", pyplot)
     return SimpleNamespace(job=job, calls=calls, outputs=start.parent / "outputs")
 
 
@@ -124,6 +149,9 @@ def run_cells(filename: str, *, enabled: bool) -> dict[str, Any]:
                 source = source.replace(
                     "submit_to_hardware = False", "submit_to_hardware = True"
                 )
+            # Rendering is checked in real kernels by verify_notebooks.py;
+            # this provider-free harness executes the submission/recovery cells.
+            source = source.replace("%matplotlib inline", "")
             exec(source, scope)
     return scope
 
@@ -151,9 +179,11 @@ def test_all_standard_api_cells_run_and_reruns_do_not_submit(
             assert (
                 request["outputs"] == "counts-request" and request["compiler"] is None
             )
-            record = json.loads((setup.outputs / "quafu-bell.json").read_text())
+            record = json.loads(
+                (setup.outputs / "quafu-ry-q0-three-qubits.json").read_text()
+            )
             assert (
-                record["counts"] == {"00": 512, "11": 512}
+                record["counts"] == {"000": 768, "100": 256}
                 and record["source"] == "live"
             )
 
@@ -201,10 +231,27 @@ def test_configured_hardware_target_is_used_for_a_fresh_experiment(
 
 def test_uncertain_attempt_cannot_be_retried(setup: SimpleNamespace) -> None:
     setup.outputs.mkdir()
-    (setup.outputs / "quafu-bell.submission.json").write_text("{}")
+    (setup.outputs / "quafu-ry-q0-three-qubits.submission.json").write_text("{}")
     with pytest.raises(RuntimeError, match="do not resubmit"):
         run_cells("06_quafu_hardware.ipynb", enabled=True)
     assert setup.calls == []
+
+
+def test_asymmetric_lesson_keeps_old_bell_files(setup: SimpleNamespace) -> None:
+    setup.outputs.mkdir()
+    old_files = {
+        "quafu-bell.receipt.json": '{"id": "old-bell-task"}',
+        "quafu-bell.submission.json": '{"circuit_hash": "old-bell-hash"}',
+        "quafu-bell.json": '{"counts": {"00": 512, "11": 512}}',
+    }
+    for name, content in old_files.items():
+        (setup.outputs / name).write_text(content)
+    for _ in range(2):
+        scope = run_cells("06_quafu_hardware.ipynb", enabled=True)
+    assert len(setup.calls) == 1
+    assert scope["receipt_path"].name == "quafu-ry-q0-three-qubits.receipt.json"
+    for name, content in old_files.items():
+        assert (setup.outputs / name).read_text() == content
 
 
 def test_failed_job_is_not_hidden(setup: SimpleNamespace) -> None:

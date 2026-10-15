@@ -18,7 +18,10 @@ SPEC.loader.exec_module(VERIFIER)
 
 
 @pytest.mark.parametrize(
-    "path", sorted(NOTEBOOKS.glob("0[1-4]_*.ipynb")), ids=lambda p: p.stem
+    "path",
+    sorted(NOTEBOOKS.glob("0[1-6]_*.ipynb"))
+    + sorted((NOTEBOOKS.parent / "notebooks_cn").glob("0[1-6]_*.ipynb")),
+    ids=lambda p: f"{p.parent.name}-{p.stem}",
 )
 def test_plot_initialization_selects_inline_before_pyplot(path: Path) -> None:
     notebook = json.loads(path.read_text(encoding="utf-8"))
@@ -34,6 +37,11 @@ def test_plot_initialization_selects_inline_before_pyplot(path: Path) -> None:
         "import matplotlib.pyplot as plt"
     )
     assert all("plt.show()" in cell for cell in cells if "plt.subplots(" in cell)
+    drawings = [cell for cell in cells if '.draw(format="mpl"' in cell]
+    assert drawings
+    assert all("plt.show()" in cell for cell in drawings)
+    if path.name.startswith(("02_", "03_", "04_")):
+        assert len(drawings) == 1
     plotting_setup = "\n".join(
         line
         for line in initialization.splitlines()

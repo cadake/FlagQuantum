@@ -116,6 +116,59 @@ def test_first_lab_reports_configuration_without_exposing_values() -> None:
     assert 'bool(os.getenv("QUAFU_TASK_SERVER_URL"))' in source
 
 
+@pytest.mark.parametrize(
+    "relative_path",
+    ("01_first_circuit.ipynb", "../notebooks_cn/01_first_circuit.ipynb"),
+)
+def test_first_lab_asymmetric_order_example_runs_without_mutating_lesson(
+    relative_path: str,
+) -> None:
+    import flagquantum as fq
+
+    cells = _notebook(relative_path)["cells"]
+    examples = [
+        "".join(cell["source"])
+        for cell in cells
+        if cell["cell_type"] == "code" and "order_check =" in "".join(cell["source"])
+    ]
+    assert len(examples) == 1
+    original = fq.Circuit(2)
+    namespace = {
+        "fq": fq,
+        "labels": ["00", "01", "10", "11"],
+        "circuit": original,
+    }
+    # This core-only test checks numerical semantics; real PNG rendering is
+    # exercised separately by the workshop's Jupyter validation script.
+    tree = ast.parse(examples[0])
+    tree.body = [
+        node
+        for node in tree.body
+        if not (
+            isinstance(node, ast.Assign)
+            and isinstance(node.value, ast.Call)
+            and isinstance(node.value.func, ast.Attribute)
+            and node.value.func.attr == "draw"
+        )
+        and not (
+            isinstance(node, ast.Expr)
+            and isinstance(node.value, ast.Call)
+            and isinstance(node.value.func, ast.Attribute)
+            and isinstance(node.value.func.value, ast.Name)
+            and node.value.func.value.id == "plt"
+        )
+    ]
+    exec(compile(tree, relative_path, "exec"), namespace)
+    assert namespace["order_probabilities"].tolist() == [0.0, 0.0, 1.0, 0.0]
+    assert namespace["circuit"] is original
+    assert fq.run(original).to_statevector().reshape(-1).abs().square().tolist() == [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+    ]
+
+
 @pytest.mark.parametrize("relative_path", NOTEBOOKS)
 @pytest.mark.parametrize("full_checkout", (False, True))
 def test_workshop_locator_supports_both_deployment_layouts(

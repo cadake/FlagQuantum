@@ -6,6 +6,7 @@ from collections.abc import Sequence
 from typing import Any, ClassVar
 
 import matplotlib.pyplot as plt
+import torch
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure
 from matplotlib.patches import Circle, FancyBboxPatch
@@ -254,6 +255,10 @@ class MPLDrawer:
         if isinstance(params, list) and len(params) == 0:
             return ""
         p = params[0] if isinstance(params, list) else params
+        if isinstance(p, torch.Tensor) and p.numel() == 1:
+            # Format a display-only scalar, without changing its gradient or
+            # the circuit's original parameter (including a batch of size 1).
+            p = p.detach().item()
         if isinstance(p, (int, float)):
             formatted = f"{p:.{self.decimals}f}"
             formatted = formatted.rstrip("0").rstrip(".")

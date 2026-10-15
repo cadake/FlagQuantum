@@ -65,6 +65,21 @@ uses a wheel instead, record the exact wheel version and commit in `FLAGQUANTUM_
 
 ## Before submitting a Jiuding job
 
+### Published examples versus the event deployment
+
+The published 05/06 notebooks keep the visible submission switches `False` so a
+downloaded example cannot consume quota accidentally. The instructor's event copy
+must set `submit_to_cloud = True` and `submit_to_hardware = True` after verifying
+the image, project, queue, credentials and target. Do not enable submission merely
+because credentials exist. Each lesson prints its active configuration before
+submission; no credential values are printed. Event acceptance requires real
+submissions and recovery checks, not just a successful local rehearsal.
+
+The asymmetric lessons use new receipt names. Keep old Bell receipts and results;
+they are a different experiment and must not be reused or relabeled. Switching
+between English and Chinese editions of the same lesson restores the same saved
+task. Updating the source does not update already deployed personal copies or images.
+
 The submitting environment and the job container must both be able to read your project and write its results.
 This is what *shared storage* means in this workshop. Installing FlagQuantum on a laptop alone does not provide this access.
 

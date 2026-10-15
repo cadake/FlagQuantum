@@ -110,10 +110,29 @@ def main():
             kernel_name=args.kernel,
             resources={"metadata": {"path": str(path.parent)}},
         ).execute()
+        drawing_cells = [
+            cell
+            for cell in notebook.cells
+            if cell.cell_type == "code" and '.draw(format="mpl"' in cell.source
+        ]
+        for cell in drawing_cells:
+            pngs = [
+                output.get("data", {}).get("image/png")
+                for output in cell.outputs
+                if "image/png" in output.get("data", {})
+            ]
+            if not pngs or any(
+                not isinstance(png, str) or len(png) < 100 for png in pngs
+            ):
+                raise RuntimeError(f"{path.name}: circuit drawing has no inline PNG")
         destination = output / path.parent.name / path.name
         destination.parent.mkdir(parents=True, exist_ok=True)
         nbformat.write(notebook, destination)
-        print(f"PASS {path.parent.name}/{path.name}", flush=True)
+        print(
+            f"PASS {path.parent.name}/{path.name}: all cells; "
+            f"{len(drawing_cells)} circuit drawing cells with inline PNG",
+            flush=True,
+        )
 
 
 if __name__ == "__main__":
